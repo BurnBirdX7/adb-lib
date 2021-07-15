@@ -25,7 +25,7 @@ public:
     LibusbContext(LibusbContext&&)      = default;
     ~LibusbContext();
 
-    void setLogCallback(LogCallback callback, int mode);
+    void setLogCallback(LogCallback callback, int mode); // libusb level
 
     LibusbDeviceList getDeviceList();
     std::vector<LibusbDevice> getDeviceVector(); // Returns std::vector instead of a special class
@@ -38,7 +38,7 @@ public:
                                                   int vendorId,
                                                   int productId,
                                                   int deviceClass,
-                                                  HotplugCallback callback,
+                                                  HotplugCallback callback, // libusb level
                                                   void* userData);
     void unregisterHotplugCallback(HotplugCallbackHandle handle);
 

@@ -1,14 +1,18 @@
 cmake_minimum_required(VERSION 3.19)
 project(obj_libusb)
 
+
+message(${CMAKE_SOURCE_DIR})
+
 set(CMAKE_CXX_STANDARD 17)
+
 set(OBJ_LIBUSB_SRC
         src/LibusbDevice.cpp
         src/LibusbContext.cpp
         src/LibusbDeviceList.cpp
         src/LibusbError.cpp
         src/LibusbDeviceHandle.cpp
-        )
+        src/LibusbTransfer.cpp)
 
 add_library(obj_libusb ${OBJ_LIBUSB_SRC})
 

@@ -10,6 +10,7 @@ class LibusbContext;
 class LibusbDevice;
 class LibusbDeviceList;
 class LibusbDeviceHandle;
+class LibusbTransfer;
 
 #include "LibusbDescriptors.hpp"
 

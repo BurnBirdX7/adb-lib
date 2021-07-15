@@ -101,3 +101,23 @@ std::string LibusbDeviceHandle::getStringDescriptorAscii(int8_t index)
         str.resize(rc);
         return str;
 }
+
+void LibusbDeviceHandle::controlTransfer(uint8_t requestType, uint8_t request, uint16_t value, uint16_t index,
+                                         unsigned char *data, uint16_t length, unsigned int timeout)
+{
+    libusb_control_transfer(mHandle, requestType, request, value, index, data, length, timeout);
+}
+
+int LibusbDeviceHandle::bulkTransfer(uint8_t endpoint, unsigned char *data, int length, unsigned int timeout)
+{
+    int bytesTransferred{};
+    libusb_bulk_transfer(mHandle, endpoint, data, length, &bytesTransferred, timeout);
+    return bytesTransferred;
+}
+
+int LibusbDeviceHandle::interruptTransfer(uint8_t endpoint, unsigned char *data, int length, unsigned int timeout)
+{
+    int bytesTransferred{};
+    libusb_interrupt_transfer(mHandle, endpoint, data, length, &bytesTransferred, timeout);
+    return bytesTransferred;
+}
