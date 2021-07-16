@@ -8,6 +8,15 @@ LibusbDevice::LibusbDevice(libusb_device *device, bool unreferenceOnDestruction)
         , mUnreferenceOnDestruction(unreferenceOnDestruction)
 {}
 
+
+LibusbDevice::LibusbDevice(LibusbDevice&& other) noexcept
+    : mDevice(other.mDevice)
+    , mUnreferenceOnDestruction(other.mUnreferenceOnDestruction)
+{
+    other.mDevice = nullptr;
+    other.mUnreferenceOnDestruction = false;
+}
+
 LibusbDevice::~LibusbDevice()
 {
     if (mUnreferenceOnDestruction)
@@ -64,7 +73,7 @@ size_t LibusbDevice::getMaxIsoPacketSize(unsigned char endpoint) const
     return rc;
 }
 
-LibusbDevice LibusbDevice::referenceDevice() const
+LibusbDevice LibusbDevice::reference() const
 {
     return LibusbDevice(libusb_ref_device(mDevice));
 }

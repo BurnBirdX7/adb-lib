@@ -8,7 +8,7 @@ class LibusbDeviceHandle {
 public:
     LibusbDeviceHandle(LibusbDeviceHandle&)        = delete;
     LibusbDeviceHandle(const LibusbDeviceHandle&)  = delete;
-    LibusbDeviceHandle(LibusbDeviceHandle&&)       = default;
+    LibusbDeviceHandle(LibusbDeviceHandle&&) noexcept;
     ~LibusbDeviceHandle();
 
 public:

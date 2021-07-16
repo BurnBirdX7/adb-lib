@@ -1,13 +1,19 @@
 #ifndef OBJ_LIBUSB__LIBUSBCONTEXT_HPP
 #define OBJ_LIBUSB__LIBUSBCONTEXT_HPP
 
+#include <memory>
 #include <vector>
 #include <thread>
 #include "Libusb.hpp"
 
 
-class LibusbContext {
+class LibusbContext
+        : public std::enable_shared_from_this<LibusbContext>
+{
 public:
+    using pointer = std::shared_ptr<LibusbContext>;
+    using weakPointer = pointer::weak_type;
+
     using LogLevel = libusb_log_level;
     //using LogCallback = void (*)(LibusbContext& context, LogLevel level, std::string message);
     using LogCallback = libusb_log_cb;
@@ -19,10 +25,11 @@ public:
     using HotplugCallbackHandle = libusb_hotplug_callback_handle;
 
 public:
-    LibusbContext();
+    static pointer makeContext();
+
     LibusbContext(LibusbContext&)       = delete;
     LibusbContext(const LibusbContext&) = delete;
-    LibusbContext(LibusbContext&&)      = default;
+    LibusbContext(LibusbContext&&) noexcept;
     ~LibusbContext();
 
     void setLogCallback(LogCallback callback, int mode); // libusb level
@@ -53,8 +60,8 @@ public: // USB Descriptors
     UniqueContainerIdDescriptor getContainerIdDescriptor(BosDevCapabilityDescriptor* devCapabilityDescriptor);
 
 private:
+    LibusbContext();
     libusb_context* mContext;
-    bool mHandleEvents;
 };
 
 

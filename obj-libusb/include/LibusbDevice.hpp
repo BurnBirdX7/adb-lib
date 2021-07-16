@@ -10,7 +10,7 @@ class LibusbDevice {
 public:
     LibusbDevice(LibusbDevice&) = delete;
     LibusbDevice(const LibusbDevice&) = delete;
-    LibusbDevice(LibusbDevice&&) = default;
+    LibusbDevice(LibusbDevice&&) noexcept ;
     ~LibusbDevice();
 
 public:
@@ -24,7 +24,7 @@ public:
     [[nodiscard]] size_t getMaxIsoPacketSize(unsigned char endpoint) const;
 
     [[nodiscard]] LibusbDevice getParent() const;
-    [[nodiscard]] LibusbDevice referenceDevice() const;
+    [[nodiscard]] LibusbDevice reference() const;
     [[nodiscard]] LibusbDeviceHandle open() const;
 
 public: // USB Descriptors

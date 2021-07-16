@@ -6,15 +6,18 @@
 
 LibusbContext::LibusbContext()
     : mContext(nullptr)
-    , mHandleEvents(true)
 {
     libusb_init(&mContext);
 }
 
+LibusbContext::LibusbContext(LibusbContext&& other) noexcept
+    : mContext(other.mContext)
+{
+    other.mContext = nullptr;
+}
 
 LibusbContext::~LibusbContext()
 {
-    mHandleEvents = false;
     libusb_exit(mContext);
 }
 
@@ -40,6 +43,7 @@ std::vector<LibusbDevice> LibusbContext::getDeviceVector()
         vector.push_back(LibusbDevice{list[i], true});
     }
 
+    libusb_free_device_list(list, 0);
     return vector;
 }
 
@@ -122,8 +126,14 @@ LibusbContext::getContainerIdDescriptor(LibusbContext::BosDevCapabilityDescripto
 
 std::thread LibusbContext::spawnEventHandlingThread()
 {
-    return std::thread([this]{
-        while (mHandleEvents)
-            libusb_handle_events(mContext);
+    auto weak = this->weak_from_this();
+    return std::thread([weak]{
+        while (!weak.expired())// while object is not expired
+            libusb_handle_events(weak.lock()->mContext);
     });
+}
+
+LibusbContext::pointer LibusbContext::makeContext()
+{
+    return LibusbContext::pointer(new LibusbContext());
 }

@@ -9,6 +9,12 @@ LibusbDeviceHandle::LibusbDeviceHandle(libusb_device_handle* handle)
     assert(handle != nullptr);
 }
 
+LibusbDeviceHandle::LibusbDeviceHandle(LibusbDeviceHandle&& other) noexcept
+    : mHandle(other.mHandle)
+{
+    other.mHandle = nullptr;
+}
+
 LibusbDeviceHandle::~LibusbDeviceHandle()
 {
     libusb_close(mHandle);

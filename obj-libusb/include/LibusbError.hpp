@@ -10,7 +10,7 @@ if ((rc) < 0) {             \
     throw LibusbError(rc);  \
 }
 
-
+#define OBJLIBUSB_IOSTREAM_REPORT_ERROR(out, err) (out) << "LibusbError: " << (err).what() << ", code: " << (err).getCode() << std::endl
 class LibusbError
         : public std::runtime_error
 {

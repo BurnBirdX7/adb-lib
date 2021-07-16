@@ -11,7 +11,7 @@
 #include "LibusbDeviceList.hpp"
 #include "LibusbError.hpp"
 
-#include "adb.hpp"
+#include "libadb.hpp"
 
 
 //void print_info(libusb_device* device);
