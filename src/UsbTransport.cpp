@@ -10,31 +10,27 @@ void UsbTransport::write(const APacket& packet)
     // TODO: Write
 }
 
-APacket UsbTransport::receive()
+void UsbTransport::startReceiving()
 {
-    // TODO: Receive
-    return APacket();
+
 }
 
 UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData)
-    : mDevice(device.reference())
+    : mDevice(device.referenceDevice())
     , mHandle(device.open())
     , mInterfaceData(interfaceData)
-    , mFlags(2)
+    , mFlags(TRANSPORT_IS_OK)
 {
-    mFlags[INTERFACE_CLAIMED] = false;
-    mFlags[IS_OK] = true;
-
     try {
         mHandle.claimInterface(mInterfaceData.interfaceNumber);
-        mFlags[INTERFACE_CLAIMED] = true;
+        mFlags |= INTERFACE_CLAIMED;
 
         mHandle.clearHalt(mInterfaceData.writeEndpointAddress);
         mHandle.clearHalt(mInterfaceData.readEndpointAddress);
     }
     catch (LibusbError& err) {
         OBJLIBUSB_IOSTREAM_REPORT_ERROR(std::cerr, err);
-        mFlags[IS_OK] = false;
+        mFlags &= ~TRANSPORT_IS_OK;
     }
 }
 
@@ -105,31 +101,26 @@ std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& 
 
 std::optional<UsbTransport> UsbTransport::makeTransport(const LibusbDevice& device)
 {
-    try {
-        auto interfaceData = findAdbInterface(device);
-        if (!interfaceData.has_value())
-            return {}; // If interface wasn't found - return empty pointer
+    auto interfaceData = findAdbInterface(device);
+    if (!interfaceData.has_value())
+        return {}; // If interface wasn't found - return empty pointer
 
-        auto transport = UsbTransport(device, interfaceData.value());
-        if (transport.isOk())
-            return transport;
-    }
-    catch (LibusbError& err) {
-        OBJLIBUSB_IOSTREAM_REPORT_ERROR(std::cerr, err);
-    }
+    auto transport = UsbTransport(device, interfaceData.value());
+    if (transport.isOk())
+        return transport;
 
     return {};
 }
 
 UsbTransport::~UsbTransport()
 {
-    if (mFlags[INTERFACE_CLAIMED])
+    if ((mFlags & INTERFACE_CLAIMED) == INTERFACE_CLAIMED)
         mHandle.releaseInterface(mInterfaceData.interfaceNumber);
 }
 
 bool UsbTransport::isOk() const
 {
-    return mFlags[IS_OK];
+    return (mFlags & TRANSPORT_IS_OK) == TRANSPORT_IS_OK;
 }
 
 

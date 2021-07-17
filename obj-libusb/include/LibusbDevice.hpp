@@ -24,7 +24,7 @@ public:
     [[nodiscard]] size_t getMaxIsoPacketSize(unsigned char endpoint) const;
 
     [[nodiscard]] LibusbDevice getParent() const;
-    [[nodiscard]] LibusbDevice reference() const;
+    [[nodiscard]] LibusbDevice referenceDevice() const;
     [[nodiscard]] LibusbDeviceHandle open() const;
 
 public: // USB Descriptors

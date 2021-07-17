@@ -6,6 +6,7 @@
 #include <Libusb.hpp>
 #include <LibusbDevice.hpp>
 #include <LibusbDeviceHandle.hpp>
+#include <LibusbTransfer.hpp>
 
 #include "Transport.hpp"
 
@@ -26,15 +27,20 @@ public:
     UsbTransport(UsbTransport&&)      = default;
     virtual ~UsbTransport();
 
-public:
-    // CAN return empty pointer
+public: // Creation
     static std::optional<UsbTransport> makeTransport(const LibusbDevice& device);
-
     [[nodiscard]] bool isOk() const;
 
 public: // Transport Interface
     void write(const APacket& packet) override;
-    APacket receive() override;
+    void startReceiving() override;
+
+public: // Callbacks
+    static void sSendHeadCallback(const LibusbTransfer::Pointer&, void*);
+    static void sSendPayloadCallback(const LibusbTransfer::Pointer&, void*);
+
+    static void sReceiveHeadCallback(const LibusbTransfer::Pointer&, void*);
+    static void sReceivePayloadCallback(const LibusbTransfer::Pointer&, void*);
 
 private:
     explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
@@ -45,10 +51,18 @@ private:
     SendListener mSendListener;
     ReceiveListener mReceiveListener;
 
-    std::vector<bool> mFlags;
-    enum FlagNames {
-        INTERFACE_CLAIMED = 0,
-        IS_OK = 1
+    struct Transfers {
+        using TPointer = LibusbTransfer::Pointer;
+        TPointer headSend       = {};
+        TPointer payloadSend    = {};
+        TPointer headReceive    = {};
+        TPointer payloadReceive = {};
+    } mTransfers;
+
+    uint8_t mFlags;
+    enum Flags {
+        TRANSPORT_IS_OK   = 1<<0,
+        INTERFACE_CLAIMED = 1<<1
     };
 
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);

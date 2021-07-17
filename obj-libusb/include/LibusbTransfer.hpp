@@ -6,17 +6,18 @@
 #include "Libusb.hpp"
 
 
+// IS NOT THREAD SAFE
 class LibusbTransfer
         : public std::enable_shared_from_this<LibusbTransfer>
 {
 public:
-    using pointer = std::shared_ptr<LibusbTransfer>;
-    using weakPointer = pointer::weak_type;
-    using transferCallback = std::function<void(weakPointer transfer, void* data)>;
+    using Pointer = std::shared_ptr<LibusbTransfer>;
+    using WeakPointer = Pointer::weak_type;
+    using TransferCallback = std::function<void(const Pointer& transfer, void* data)>;
 
     enum State : uint8_t {
         EMPTY           = 0,
-        FILLED          = 1,
+        READY           = 1,
         SUBMITTED       = 2,
         IN_CALLBACK     = 3,
         OUT_OF_CALLBACK = 4,
@@ -48,7 +49,7 @@ public:
     };
 
 public:
-    static pointer createTransfer(int isoPacketsNumber = 0);
+    static Pointer createTransfer(int isoPacketsNumber = 0);
     ~LibusbTransfer();
 
     void submit();
@@ -66,14 +67,16 @@ public:
     uint8_t getActualLength() const;
     void* getUserData() const;
 
+    State getState() const;
+    void reset(); // Can be performed only in READY state
 
-    void fillBulk(const LibusbDeviceHandle &device,
-                  uint8_t endpoint,
-                  unsigned char* buffer,
-                  int length,
-                  transferCallback callback,
-                  void* userData,
-                  unsigned int timeout);
+    void fillBulk(const LibusbDeviceHandle& device,
+                  uint8_t                   endpoint,
+                  unsigned char*            buffer,
+                  int                       length,
+                  TransferCallback          callback,
+                  void*                     userData,
+                  unsigned int              timeout);
 
 
     static void sCallbackWrapper(libusb_transfer* transfer);
@@ -81,14 +84,18 @@ public:
 private:
     struct CallbackData {
         void* userData; // the data user wants to pass to a callback function
-        transferCallback userCallback;
-        weakPointer transfer;
+        TransferCallback userCallback;
+        Pointer transfer;
     };
 
     explicit LibusbTransfer(int isoPacketsNumber);
     libusb_transfer* mTransfer;
     State mState;
 
+    CallbackData* makeCallbackData(void* userData, TransferCallback&& callback);
+    void* getCallbackUserData() const;
+    CallbackData* getCallbackData() const;
+    void freeCallbackData();
 };
 
 

@@ -33,3 +33,8 @@ void Transport::notifyReceiveListener(const APacket& packet)
     if(mReceiveListener)
         mReceiveListener(packet);
 }
+
+uint32_t Transport::getVersion() const
+{
+    return mVersion;
+}

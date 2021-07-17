@@ -73,7 +73,7 @@ size_t LibusbDevice::getMaxIsoPacketSize(unsigned char endpoint) const
     return rc;
 }
 
-LibusbDevice LibusbDevice::reference() const
+LibusbDevice LibusbDevice::referenceDevice() const
 {
     return LibusbDevice(libusb_ref_device(mDevice));
 }
