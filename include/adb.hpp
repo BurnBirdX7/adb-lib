@@ -1,6 +1,8 @@
 #ifndef ADB_TEST_ADB_HPP
 #define ADB_TEST_ADB_HPP
 
+#include <cstdint>
+
 constexpr size_t MAX_PAYLOAD_V1 = 4 * 1024;
 constexpr size_t MAX_PAYLOAD = 1024 * 1024;
 constexpr size_t MAX_FRAMEWORK_PAYLOAD = 64 * 1024;

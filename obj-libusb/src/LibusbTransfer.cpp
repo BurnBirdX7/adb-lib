@@ -7,6 +7,8 @@
 LibusbTransfer::LibusbTransfer(int isoPacketsNumber)
     : mTransfer(libusb_alloc_transfer(isoPacketsNumber))
     , mState(State::EMPTY)
+    , mUserCallback()
+    , mUserData(nullptr)
 {
     if (mTransfer == nullptr)
         throw LibusbError(LIBUSB_ERROR_OTHER);
@@ -14,13 +16,13 @@ LibusbTransfer::LibusbTransfer(int isoPacketsNumber)
 
 LibusbTransfer::~LibusbTransfer()
 {
-    freeCallbackData();
     libusb_free_transfer(mTransfer);
 }
 
 void LibusbTransfer::submit()
 {
     assert(mState == READY);
+    mTransfer->user_data = new Pointer(shared_from_this()); // will be deleted in callback
     CHECK_ERROR(libusb_submit_transfer(mTransfer));
     mState = SUBMITTED;
 }
@@ -34,6 +36,8 @@ void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device, uint8_t endpoint
                               TransferCallback callback, void *userData, unsigned int timeout)
 {
     assert(mState == EMPTY && "Only empty transfer can be filled, call reset() if you want to refill transfer");
+    mUserCallback = std::move(callback);
+    mUserData = userData;
 
     libusb_fill_bulk_transfer(mTransfer,
                               device.mHandle,
@@ -41,7 +45,7 @@ void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device, uint8_t endpoint
                               buffer,
                               length,
                               LibusbTransfer::sCallbackWrapper,
-                              makeCallbackData(userData, std::move(callback)),
+                              nullptr,
                               timeout);
 
     mState = READY;
@@ -54,13 +58,15 @@ void LibusbTransfer::sCallbackWrapper(libusb_transfer* libusbTransfer)
     if (libusbTransfer->user_data == nullptr)
         return;
 
-    auto data = static_cast<CallbackData*>(libusbTransfer->user_data);
-    void* userData = data->userData;
-    TransferCallback callback = std::move(data->userCallback);
-    Pointer transfer = data->transfer;
+    auto transfer = *static_cast<LibusbTransfer::Pointer*>(libusbTransfer->user_data);
 
-    transfer->mState = IN_CALLBACK;
-    callback(transfer, userData);
+    const auto& callback = transfer->mUserCallback;
+    if (callback) { // if callback is set
+        transfer->mState = IN_CALLBACK;
+        callback(transfer);
+    }
+
+    delete static_cast<Pointer*>(transfer->mTransfer->user_data);
     transfer->mState = READY;
 }
 
@@ -99,13 +105,13 @@ uint8_t LibusbTransfer::getStatus() const
     return mTransfer->status;
 }
 
-uint8_t LibusbTransfer::getLength() const
+int LibusbTransfer::getLength() const
 {
     assert(mState >= READY);
     return mTransfer->length;
 }
 
-uint8_t LibusbTransfer::getActualLength() const
+int LibusbTransfer::getActualLength() const
 {
     assert(mState == IN_CALLBACK);
     return mTransfer->actual_length;
@@ -114,7 +120,7 @@ uint8_t LibusbTransfer::getActualLength() const
 void* LibusbTransfer::getUserData() const
 {
     assert(mState >= READY);
-    return getCallbackUserData();
+    return mUserData;
 }
 
 void LibusbTransfer::enableFreeBufferFlag(bool enable)
@@ -145,7 +151,6 @@ LibusbTransfer::State LibusbTransfer::getState() const
 void LibusbTransfer::reset()
 {
     assert(mState == READY);
-    freeCallbackData();
     const auto isoPackets = mTransfer->num_iso_packets;
     libusb_free_transfer(mTransfer);
 
@@ -153,38 +158,23 @@ void LibusbTransfer::reset()
     mState = EMPTY;
 }
 
-
-LibusbTransfer::CallbackData*
-LibusbTransfer::makeCallbackData(void* userData, LibusbTransfer::TransferCallback&& callback)
+uint8_t* LibusbTransfer::getBuffer() const
 {
-    auto data = new CallbackData{
-            .userData = userData,
-            .userCallback = callback,
-            .transfer = shared_from_this()
-    };
-    return data;
+    assert(mState >= READY);
+    return mTransfer->buffer;
 }
 
-void* LibusbTransfer::getCallbackUserData() const
+void LibusbTransfer::setNewBuffer(unsigned char* buffer, uint8_t length)
 {
-    auto data = getCallbackData();
-    return data ? data->userData : nullptr;
+    assert(mState == READY || mState == IN_CALLBACK);
+    mTransfer->buffer = buffer;
+    mTransfer->length = length;
 }
 
-LibusbTransfer::CallbackData* LibusbTransfer::getCallbackData() const
+void LibusbTransfer::setNewUserData(void* userData)
 {
-    if (!mTransfer)
-        return {};
-    return static_cast<CallbackData*>(mTransfer->user_data);
+    assert(mState == READY || mState == IN_CALLBACK);
+    mUserData = userData;
 }
-
-void LibusbTransfer::freeCallbackData()
-{
-    auto data = getCallbackData();
-    delete data;
-    mTransfer->user_data = nullptr;
-}
-
-
 
 

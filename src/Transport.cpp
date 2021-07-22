@@ -22,16 +22,16 @@ void Transport::resetReceiveListener()
     mReceiveListener = {};
 }
 
-void Transport::notifySendListener(const APacket& packet)
+void Transport::notifySendListener(const APacket& packet, int errorCode)
 {
     if(mSendListener)
-        mSendListener(packet);
+        mSendListener(packet, errorCode);
 }
 
-void Transport::notifyReceiveListener(const APacket& packet)
+void Transport::notifyReceiveListener(const APacket& packet, int errorCode)
 {
     if(mReceiveListener)
-        mReceiveListener(packet);
+        mReceiveListener(packet, errorCode);
 }
 
 uint32_t Transport::getVersion() const

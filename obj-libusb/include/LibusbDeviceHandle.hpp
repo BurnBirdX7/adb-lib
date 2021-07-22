@@ -2,6 +2,7 @@
 #define OBJ_LIBUSB__LIBUSBDEVICEHANDLE_HPP
 
 #include <vector>
+#include <cstdint>
 #include "Libusb.hpp"
 
 class LibusbDeviceHandle {
@@ -34,8 +35,8 @@ public: // USB Descriptors
     // Descriptor
     UniqueBosDescriptor getBosDescriptor();
     std::vector<unsigned char> getDescriptor(DescriptorType type, uint8_t index);
-    std::string getStringDescriptor(int8_t index, uint16_t languageId);
-    std::string getStringDescriptorAscii(int8_t index);
+    std::string getStringDescriptor(uint8_t index, uint16_t languageId);
+    std::string getStringDescriptorAscii(uint8_t index);
 
     // Synchronous I/O
     void controlTransfer(uint8_t requestType, uint8_t request, uint16_t value, uint16_t index, unsigned char* data,

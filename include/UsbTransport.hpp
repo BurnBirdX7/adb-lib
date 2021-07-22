@@ -21,43 +21,37 @@ struct InterfaceData {
 class UsbTransport
         : public Transport
 {
+    using SendListener = std::function<void(const APacket&, int errorCode)>;
+    using ReceiveListener = std::function<void(const APacket&, int errorCode)>;
+
 public:
     UsbTransport(UsbTransport&)       = delete;
     UsbTransport(const UsbTransport&) = delete;
-    UsbTransport(UsbTransport&&)      = default;
+    UsbTransport(UsbTransport&&) noexcept;
     virtual ~UsbTransport();
 
 public: // Creation
-    static std::optional<UsbTransport> makeTransport(const LibusbDevice& device);
+    static std::optional<UsbTransport> createTransport(const LibusbDevice& device);
+    static bool isAdbInterface(const libusb_interface_descriptor& interfaceDescriptor);
+    static bool isEndpointOutput(uint8_t endpointAddress);
     [[nodiscard]] bool isOk() const;
 
 public: // Transport Interface
     void write(const APacket& packet) override;
-    void startReceiving() override;
+    void receive() override;
 
 public: // Callbacks
-    static void sSendHeadCallback(const LibusbTransfer::Pointer&, void*);
-    static void sSendPayloadCallback(const LibusbTransfer::Pointer&, void*);
+    static void sSendHeadCallback(const LibusbTransfer::Pointer&);
+    static void sSendPayloadCallback(const LibusbTransfer::Pointer&);
 
-    static void sReceiveHeadCallback(const LibusbTransfer::Pointer&, void*);
-    static void sReceivePayloadCallback(const LibusbTransfer::Pointer&, void*);
+    static void sReceiveHeadCallback(const LibusbTransfer::Pointer&);
+    static void sReceivePayloadCallback(const LibusbTransfer::Pointer&);
 
 private:
     explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
     LibusbDevice mDevice;
     LibusbDeviceHandle mHandle;
     InterfaceData mInterfaceData;
-
-    SendListener mSendListener;
-    ReceiveListener mReceiveListener;
-
-    struct Transfers {
-        using TPointer = LibusbTransfer::Pointer;
-        TPointer headSend       = {};
-        TPointer payloadSend    = {};
-        TPointer headReceive    = {};
-        TPointer payloadReceive = {};
-    } mTransfers;
 
     uint8_t mFlags;
     enum Flags {
@@ -66,6 +60,11 @@ private:
     };
 
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
+
+    struct CallbackData {
+        APacket packet{};
+        UsbTransport* transport{};
+    };
 
 };
 

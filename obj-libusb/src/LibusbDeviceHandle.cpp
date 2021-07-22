@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdint>
 #include "LibusbDevice.hpp"
 #include "LibusbDeviceHandle.hpp"
 #include "LibusbError.hpp"
@@ -88,7 +89,7 @@ std::vector<unsigned char> LibusbDeviceHandle::getDescriptor(LibusbDeviceHandle:
     return data;
 }
 
-std::string LibusbDeviceHandle::getStringDescriptor(int8_t index, uint16_t languageId)
+std::string LibusbDeviceHandle::getStringDescriptor(uint8_t index, uint16_t languageId)
 {
     std::string str(DESCRIPTOR_BUFFER_SIZE, '\0');
     auto* data = reinterpret_cast<unsigned char*>(str.data());
@@ -98,7 +99,7 @@ std::string LibusbDeviceHandle::getStringDescriptor(int8_t index, uint16_t langu
     return str;
 }
 
-std::string LibusbDeviceHandle::getStringDescriptorAscii(int8_t index)
+std::string LibusbDeviceHandle::getStringDescriptorAscii(uint8_t index)
 {
         std::string str(DESCRIPTOR_BUFFER_SIZE, '\0');
         auto* data = reinterpret_cast<unsigned char*>(str.data());

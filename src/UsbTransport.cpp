@@ -2,18 +2,9 @@
 
 #include <cassert>
 #include <iostream>
+
 #include <LibusbError.hpp>
 
-
-void UsbTransport::write(const APacket& packet)
-{
-    // TODO: Write
-}
-
-void UsbTransport::startReceiving()
-{
-
-}
 
 UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData)
     : mDevice(device.referenceDevice())
@@ -37,7 +28,6 @@ UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& inte
 std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& device)
 {
     // TODO: Logging
-
     auto deviceDescriptor = device.getDescriptor();
     if (deviceDescriptor->bDeviceClass != LIBUSB_CLASS_PER_INTERFACE)
         return {}; // Skip device with incorrect class
@@ -46,25 +36,27 @@ std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& 
     const size_t interfaceCount = configDescriptor->bNumInterfaces;
     InterfaceData data{};
     bool found = false;
-    size_t interfaceNumber;
+    int interfaceNumber;
 
     // Run through interfaces of the device
-    for (interfaceNumber = 0; interfaceNumber < interfaceCount; ++interfaceNumber) {
+    for (interfaceNumber = 0; !found && interfaceNumber < interfaceCount; ++interfaceNumber) {
+        data.interfaceNumber = interfaceNumber;
+
         const auto& interface = configDescriptor->interface[interfaceNumber];
         if (interface.num_altsetting != 1)
             continue; // skip the interface if zero altsetting OR more than one
 
         const auto& interfaceDescriptor = interface.altsetting[0];
 
-        if (!is_adb_interface(interfaceDescriptor))
+        if (!isAdbInterface(interfaceDescriptor))
             continue; // skipping non-adb interface
 
         bool found_in = false;
         bool found_out = false;
-        const size_t endpointCount = interfaceDescriptor.bNumEndpoints;
+        const int endpointCount = interfaceDescriptor.bNumEndpoints;
 
         // Run through endpoints of the interface
-        for (size_t endpointNumber = 0; endpointNumber < endpointCount; ++endpointNumber) {
+        for (int endpointNumber = 0; endpointNumber < endpointCount; ++endpointNumber) {
             const auto& endpointDescriptor = interfaceDescriptor.endpoint[endpointNumber];
             const uint8_t endpointAddress = endpointDescriptor.bEndpointAddress;
             const uint8_t endpointAttribute = endpointDescriptor.bmAttributes;
@@ -73,12 +65,12 @@ std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& 
             if (transferType != LIBUSB_TRANSFER_TYPE_BULK)
                 continue; // skip if transfer type is not bulk
 
-            if (is_endpoint_output(endpointAddress) && !found_out) {
+            if (isEndpointOutput(endpointAddress) && !found_out) {
                 found_out = true;
                 data.writeEndpointAddress = endpointAddress;
                 data.zeroMask = endpointDescriptor.wMaxPacketSize - 1;
             }
-            else if (!is_endpoint_output(endpointAddress) && !found_in) {
+            else if (!isEndpointOutput(endpointAddress) && !found_in) {
                 found_in = true;
                 data.readEndpointAddress = endpointAddress;
             }
@@ -99,17 +91,13 @@ std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& 
     return data;
 }
 
-std::optional<UsbTransport> UsbTransport::makeTransport(const LibusbDevice& device)
+UsbTransport::UsbTransport(UsbTransport&& other) noexcept
+        : mDevice(std::move(other.mDevice))
+        , mHandle(std::move(other.mHandle))
+        , mInterfaceData(other.mInterfaceData)
+        , mFlags(other.mFlags)
 {
-    auto interfaceData = findAdbInterface(device);
-    if (!interfaceData.has_value())
-        return {}; // If interface wasn't found - return empty pointer
-
-    auto transport = UsbTransport(device, interfaceData.value());
-    if (transport.isOk())
-        return transport;
-
-    return {};
+    other.mFlags = 0; // other is NOT ok and interface is NOT claimed
 }
 
 UsbTransport::~UsbTransport()
@@ -118,9 +106,173 @@ UsbTransport::~UsbTransport()
         mHandle.releaseInterface(mInterfaceData.interfaceNumber);
 }
 
+std::optional<UsbTransport> UsbTransport::createTransport(const LibusbDevice& device)
+{
+    auto interfaceData = findAdbInterface(device);
+    if (!interfaceData.has_value())
+        return {}; // If interface wasn't found - return empty pointer
+
+    UsbTransport transport(device, interfaceData.value());
+    if (transport.isOk())
+        return transport;
+
+    return {};
+}
+
+bool UsbTransport::isAdbInterface(const libusb_interface_descriptor& interfaceDescriptor)
+{
+    const int usb_class = interfaceDescriptor.bInterfaceClass;
+    const int usb_subclass = interfaceDescriptor.bInterfaceSubClass;
+    const int usb_protocol = interfaceDescriptor.bInterfaceProtocol;
+    return (usb_class == ADB_CLASS) &&
+           (usb_subclass == ADB_SUBCLASS) &&
+           (usb_protocol == ADB_PROTOCOL);
+}
+
+bool UsbTransport::isEndpointOutput(uint8_t endpointAddress)
+{
+    return (endpointAddress & LIBUSB_ENDPOINT_DIR_MASK) == LIBUSB_ENDPOINT_OUT;
+}
+
 bool UsbTransport::isOk() const
 {
     return (mFlags & TRANSPORT_IS_OK) == TRANSPORT_IS_OK;
 }
+void UsbTransport::write(const APacket& packet)
+{
+    auto data = new CallbackData{.packet = packet, .transport = this}; // has to be deleted in one of callbacks
+    auto buffer = reinterpret_cast<unsigned char*>(&data->packet.message);
+    auto bufferSize = sizeof(data->packet.message);
 
+    auto transfer = LibusbTransfer::createTransfer();
+    transfer->fillBulk(mHandle,
+                       mInterfaceData.writeEndpointAddress,
+                       buffer,
+                       bufferSize,
+                       sSendHeadCallback,
+                       data,
+                       0);
+    transfer->submit();
+}
 
+void UsbTransport::receive()
+{
+    auto headBuffer = reinterpret_cast<unsigned char*>(new AMessage{});
+    auto headBufferSize = sizeof(AMessage);
+    auto callbackData = new CallbackData{};
+    callbackData->transport = this;
+
+    auto headTransfer = LibusbTransfer::createTransfer();
+    headTransfer->fillBulk(mHandle,
+                           mInterfaceData.readEndpointAddress,
+                           headBuffer,
+                           headBufferSize,
+                           sReceiveHeadCallback,
+                           callbackData,
+                           0);
+}
+
+void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer)
+{
+    auto status = headTransfer->getStatus();
+    if (status != LibusbTransfer::COMPLETED)
+        std::cerr << "Message headTransfer has not been completed, status code: " << status << std::endl;
+
+    auto data = static_cast<CallbackData*>(headTransfer->getUserData());
+    auto& packet = data->packet;
+    auto& transport = data->transport;
+
+    // fire payload headTransfer
+    if (status == LibusbTransfer::COMPLETED && packet.payload->getLength() > 0) {
+        auto payloadTransfer = LibusbTransfer::createTransfer();
+        auto payloadBuffer = packet.payload->getData();
+        auto payloadSize = packet.payload->getLength();
+        payloadTransfer->fillBulk(transport->mHandle,
+                                  transport->mInterfaceData.writeEndpointAddress,
+                                  payloadBuffer,
+                                  payloadSize,
+                                  sSendPayloadCallback,
+                                  data,
+                                  0);
+        payloadTransfer->submit();
+    }
+    else {
+        transport->notifySendListener(data->packet, status);
+        delete data;
+    }
+}
+
+void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& transfer)
+{
+    auto status = transfer->getStatus();
+    if (status != LibusbTransfer::COMPLETED)
+        std::cerr << "Payload transfer has not been completed, status code: " << status << std::endl;
+
+    auto data = static_cast<CallbackData*>(transfer->getUserData());
+    auto& packet = data->packet;
+    auto& transport = data->transport;
+
+    transport->notifySendListener(data->packet, status);
+    delete data;
+}
+
+void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTransfer)
+{
+    auto status = headTransfer->getStatus();
+    auto data = static_cast<CallbackData*>(headTransfer->getUserData());
+    auto& packet = data->packet;
+    auto& transport = data->transport;
+
+    if (status != LibusbTransfer::COMPLETED) { // if not completed, print error and skip
+        std::cerr << "Payload receive headTransfer has not been completed" << std::endl;
+    }
+    else { // if completed
+        auto* message = reinterpret_cast<AMessage*>(headTransfer->getBuffer()); // interpret pointer to buffer
+                                                                            // as pointer to AMessage
+        packet.message = *message;  // copy incoming message to the packet
+
+        // if dataLength is greater than 0 then try to read payload
+        if (packet.message.dataLength > 0) {
+            auto payloadTransfer = LibusbTransfer::createTransfer();
+            // TODO: Safe memory allocation
+            auto payloadBuffer = static_cast<unsigned char*>(std::malloc(MAX_PAYLOAD));
+            auto payloadSize = MAX_PAYLOAD;
+            payloadTransfer->fillBulk(transport->mHandle,
+                                      transport->mInterfaceData.readEndpointAddress,
+                                      payloadBuffer,
+                                      payloadSize,
+                                      sReceivePayloadCallback,
+                                      data,
+                                      0);
+
+            payloadTransfer->submit();
+            return; // if we submit new transport we should not free data
+        }
+    }
+
+    transport->notifyReceiveListener(packet, status);
+    delete data;
+}
+
+void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::Pointer& payloadTransfer)
+{
+    auto status = payloadTransfer->getStatus();
+    auto data = static_cast<CallbackData*>(payloadTransfer->getUserData());
+    auto& transport = data->transport;
+    auto& packet = data->packet;
+
+    if (status != LibusbTransfer::COMPLETED) {
+        std::cerr << "Payload receive payloadTransfer has not been completed" << std::endl;
+    }
+    else {
+        auto buffer = payloadTransfer->getBuffer();
+        auto length = payloadTransfer->getLength();
+        auto actualLength = payloadTransfer->getActualLength();
+        auto payload = new SimplePayload(buffer, length);  // SimplePayload is now responsible for the memory
+        payload->resize(actualLength);              // Shrink
+        packet.payload = payload;                   // APacket is now responsible for the payload
+        packet.deletePayloadOnDestruction = true;
+    }
+    transport->notifyReceiveListener(packet, status);
+    delete data;
+}

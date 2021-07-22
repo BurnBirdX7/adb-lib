@@ -13,27 +13,31 @@ size_t SimplePayload::getLength() const
     return length;
 }
 
-void APacket::setNewPayload(AbstractPayload* newPayload, bool computeChecksum)
+void SimplePayload::resize(size_t newSize)
 {
-    payload = newPayload;
-    message.dataLength = newPayload->getLength();
-    if (computeChecksum)
-        message.dataCheck = APacket::computeChecksum(newPayload);
-    else
-        message.dataCheck = 0;
-
+    data = static_cast<unsigned char*>(realloc(data, newSize));
 }
 
-uint32_t APacket::computeChecksum(AbstractPayload* payload)
-{
-    assert(payload != nullptr);
+SimplePayload::SimplePayload(size_t length)
+        : data(static_cast<unsigned char*>(std::malloc(length)))
+        , length(length)
+{}
 
-    uint32_t checksum = 0;
-    const auto length = payload->getLength();
-    const auto* data = payload->getData();
-    for(size_t i = 0; i < length; ++i)
-        checksum += data[i];
-    return checksum;
+SimplePayload::SimplePayload(unsigned char* data, size_t length)
+        : data(data)
+        , length(length)
+{}
+
+SimplePayload::SimplePayload(const SimplePayload& other)
+        : SimplePayload(other.length)
+{
+    for (size_t i = 0; i < length; ++i)
+        data[i] = other.data[i];
+}
+
+SimplePayload::~SimplePayload()
+{
+    free(data);
 }
 
 void APacket::setNewMessage(const AMessage& newMessage, bool computeChecksum)
@@ -49,5 +53,37 @@ void APacket::setNewMessage(const AMessage& newMessage, bool computeChecksum)
         return;
     }
 
-    setNewPayload(payload, computeChecksum); // set our own payload again
+    setNewPayload(payload, computeChecksum, deletePayloadOnDestruction); // set our own payload again
+}
+
+void APacket::setNewPayload(AbstractPayload* newPayload, bool computeChecksum, bool payloadDestruction)
+{
+    if (newPayload == nullptr)
+        return;
+
+    deletePayloadOnDestruction = payloadDestruction;
+    payload = newPayload;
+    message.dataLength = newPayload->getLength();
+    if (computeChecksum)
+        message.dataCheck = APacket::computeChecksum(newPayload);
+    else
+        message.dataCheck = 0;
+}
+
+uint32_t APacket::computeChecksum(AbstractPayload* payload)
+{
+    assert(payload != nullptr);
+
+    uint32_t checksum = 0;
+    const auto length = payload->getLength();
+    const auto* data = payload->getData();
+    for(size_t i = 0; i < length; ++i)
+        checksum += data[i];
+    return checksum;
+}
+
+APacket::~APacket()
+{
+    if (deletePayloadOnDestruction)
+        delete payload;
 }
