@@ -6,7 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(ADBLIB_SRC
         src/APacket.cpp
         src/UsbTransport.cpp
-        src/Transport.cpp)
+        src/Transport.cpp
+        src/APayload.cpp)
 
 add_executable(adbtest ${ADBLIB_SRC} src/main.cpp)
 add_library(adblib ${ADBLIB_SRC})

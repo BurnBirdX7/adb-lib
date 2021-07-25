@@ -158,7 +158,7 @@ int main()
         }
 
         std::cout << "Head: " << packet.message.command << std::endl;
-        std::cout << "Payload (size: " << packet.message.dataLength << "): "<< std::endl;
+        std::cout << "APayload (size: " << packet.message.dataLength << "): "<< std::endl;
         if (packet.payload != nullptr) {
             std::cout << "\t";
             for(size_t i = 0; i < packet.payload->getLength(); ++i)

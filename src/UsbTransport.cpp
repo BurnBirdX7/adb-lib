@@ -208,7 +208,7 @@ void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& transfer)
 {
     auto status = transfer->getStatus();
     if (status != LibusbTransfer::COMPLETED)
-        std::cerr << "Payload transfer has not been completed, status code: " << status << std::endl;
+        std::cerr << "APayload transfer has not been completed, status code: " << status << std::endl;
 
     auto data = static_cast<CallbackData*>(transfer->getUserData());
     auto& packet = data->packet;
@@ -226,7 +226,7 @@ void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTrans
     auto& transport = data->transport;
 
     if (status != LibusbTransfer::COMPLETED) { // if not completed, print error and skip
-        std::cerr << "Payload receive headTransfer has not been completed" << std::endl;
+        std::cerr << "APayload receive headTransfer has not been completed" << std::endl;
     }
     else { // if completed
         auto* message = reinterpret_cast<AMessage*>(headTransfer->getBuffer()); // interpret pointer to buffer
@@ -264,7 +264,7 @@ void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::Pointer& payloa
     auto& packet = data->packet;
 
     if (status != LibusbTransfer::COMPLETED) {
-        std::cerr << "Payload receive payloadTransfer has not been completed" << std::endl;
+        std::cerr << "APayload receive payloadTransfer has not been completed" << std::endl;
     }
     else {
         auto buffer = payloadTransfer->getBuffer();
