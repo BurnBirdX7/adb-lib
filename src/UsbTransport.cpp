@@ -170,6 +170,8 @@ void UsbTransport::receive()
                            sReceiveHeadCallback,
                            callbackData,
                            0);
+
+    headTransfer->submit();
 }
 
 void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer)

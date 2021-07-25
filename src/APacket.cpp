@@ -16,6 +16,7 @@ size_t SimplePayload::getLength() const
 void SimplePayload::resize(size_t newSize)
 {
     data = static_cast<unsigned char*>(realloc(data, newSize));
+    length = newSize;
 }
 
 SimplePayload::SimplePayload(size_t length)

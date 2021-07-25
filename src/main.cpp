@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <mutex>
+#include <memory>
 #include <condition_variable>
 
 
@@ -111,12 +112,12 @@ int main()
 
         // stupid copy
         auto str = "host::features=" + featureSetToString(getFeatureSet());
-        auto payload = new SimplePayload(str.size());
+        auto payload = std::make_unique<SimplePayload>(str.size());
         auto* payloadData = payload->getData();
         for (size_t i = 0; i < str.size(); ++i)
             payloadData[i] = str[i];
 
-        packet.setNewPayload(payload, true, false);
+        packet.setNewPayload(payload.get(), true, false);
 
         std::mutex mutex{};
         std::condition_variable cv{};
@@ -133,7 +134,6 @@ int main()
             std::unique_lock lock(mutex);
             libusbError = errorCode;
             packet.message = receivedPacket.message;    // copy head
-            delete packet.payload;                      // destroy old payload
             packet.payload = new SimplePayload(*dynamic_cast<SimplePayload*>(receivedPacket.payload));  // copy payload
             lock.unlock();
             cv.notify_one();
@@ -155,6 +155,15 @@ int main()
         if (libusbError != LibusbTransfer::COMPLETED) {
             std::cerr << "Send error code: " << libusbError << std::endl;
             return 1;
+        }
+
+        std::cout << "Head: " << packet.message.command << std::endl;
+        std::cout << "Payload (size: " << packet.message.dataLength << "): "<< std::endl;
+        if (packet.payload != nullptr) {
+            std::cout << "\t";
+            for(size_t i = 0; i < packet.payload->getLength(); ++i)
+                std::cout << packet.payload->getData()[i];
+            std::cout << std::endl;
         }
 
     }
