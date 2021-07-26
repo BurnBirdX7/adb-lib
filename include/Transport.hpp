@@ -26,10 +26,10 @@ public:
     void setReceiveListener(ReceiveListener);
     void resetReceiveListener();
 
-    void setVersion(uint32_t version);
+    virtual void setVersion(uint32_t version);
     [[nodiscard]] uint32_t getVersion() const;
 
-    void setMaxPayloadSize(size_t maxPayloadSize);
+    virtual void setMaxPayloadSize(size_t maxPayloadSize);
     [[nodiscard]] size_t getMaxPayloadSize() const;
 
 protected:

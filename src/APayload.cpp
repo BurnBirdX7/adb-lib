@@ -58,6 +58,9 @@ uint8_t& APayload::operator[](size_t index)
 
 void APayload::resizeBuffer(size_t newSize)
 {
+    if (newSize == mBufferSize)
+        return;
+
     auto newBuffer = static_cast<uint8_t*>(std::realloc(mBuffer, newSize));
     assert(newBuffer != nullptr && "Couldn't reallocate memory for APaylaod"); // Change to exception?
     mBuffer = newBuffer;

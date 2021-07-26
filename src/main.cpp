@@ -141,7 +141,7 @@ int main()
 
         std::unique_lock lock(mutex);
         std::cout << "Sending..." << std::endl;
-        transport.write(packet);
+        transport.send(packet);
         cv.wait(lock);
 
         if (libusbError != LibusbTransfer::COMPLETED) {

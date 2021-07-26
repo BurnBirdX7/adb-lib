@@ -40,6 +40,8 @@ public: // Transport Interface
     void send(APacket&& packet) override;
     void receive() override;
 
+    void setVersion(uint32_t version) override;
+
 public: // Callbacks
     static void sSendHeadCallback(const LibusbTransfer::Pointer&);
     static void sSendPayloadCallback(const LibusbTransfer::Pointer&);
@@ -78,6 +80,10 @@ private:
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
 
     static ErrorCode getTransferStatus(int);
+    static const AMessage& messageFromBuffer(const uint8_t* buffer);
+
+    void prepareReceivePacket();
+    void prepareReceiveTransfers();
 
 private:
     LibusbDevice mDevice;
@@ -89,8 +95,8 @@ private:
     //TODO: Replace map by more efficient container
 
     std::mutex mReceiveMutex;
-    APacket mReceivePacket;
-    std::optional<LibusbTransfer> mReceiveTransfer;
+    Transfer mReceiveTransfer;
+    bool isReceiving;
 
     uint8_t mFlags;
 

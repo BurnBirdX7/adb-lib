@@ -24,6 +24,9 @@ UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& inte
         OBJLIBUSB_IOSTREAM_REPORT_ERROR(std::cerr, err);
         mFlags &= ~TRANSPORT_IS_OK;
     }
+
+    prepareReceivePacket();
+    prepareReceiveTransfers();
 }
 
 std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& device)
@@ -99,6 +102,8 @@ UsbTransport::UsbTransport(UsbTransport&& other) noexcept
         , mFlags(other.mFlags)
 {
     other.mFlags = 0; // other is NOT ok and interface is NOT claimed
+
+    prepareReceiveTransfers();
 }
 
 UsbTransport::~UsbTransport()
@@ -147,7 +152,8 @@ void UsbTransport::send(APacket&& packet)
     auto res = mSendTransfers.emplace(transferId++, std::move(packet));
     auto& transfers = res.first->second; // res.[iterator]->[value]
 
-    auto* callbackData = new CallbackData{.transport = this, .transferId = transferId};
+    auto* callbackData = new CallbackData{.transport = this,            // Has to be deleted in a callback
+                                          .transferId = transferId};    // (either message's or payload's)
     auto& message = transfers.packet.getMessage();
     transfers.messageTransfer = LibusbTransfer::createTransfer();
     transfers.messageTransfer->fillBulk(mHandle,
@@ -176,22 +182,12 @@ void UsbTransport::send(APacket&& packet)
 void UsbTransport::receive()
 {
     std::scoped_lock lock(mReceiveMutex);
-    if (mReceiveTransfer.has_value())
+    if (isReceiving)
         return;
 
-    auto headBuffer = reinterpret_cast<unsigned char*>(&mReceivePacket.getMessage());
-    auto headBufferSize = sizeof(AMessage);
+    // transfers should be already prepared
+    mReceiveTransfer.messageTransfer->submit();
 
-    auto headTransfer = LibusbTransfer::createTransfer();
-    headTransfer->fillBulk(mHandle,
-                           mInterfaceData.readEndpointAddress,
-                           headBuffer,
-                           headBufferSize,
-                           sReceiveHeadCallback,
-                           this,
-                           0);
-
-    headTransfer->submit();
 }
 
 void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer)
@@ -209,22 +205,25 @@ void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer
         return;
     } // !
 
+    auto& transfer = transfers->second;
+
+    if (transfer.payloadTransfer != nullptr)
+        callbackData.release();
+
     ErrorCode ec = getTransferStatus(headTransfer->getStatus());
     // OK:
-    if (ec == ErrorCode::OK && transfers->second.payloadTransfer == nullptr) {  // if there's a payload transfer
-        transport->notifySendListener(&transfers->second.packet, ec);           // we expect notification to happen
-                                                                                // in payload's callback
-
-        callbackData.release();  // Release callback data pointer to make it available in payload's callback
+    if (ec == ErrorCode::OK) {
+        if (transfer.payloadTransfer == nullptr)
+            transport->notifySendListener(&transfer.packet, ec);
         return;
     }
 
     // NOT OK:
-    transfers->second.errorCode = ec;
-    if (transfers->second.payloadTransfer != nullptr)
-        transfers->second.payloadTransfer->cancel();
+    transfer.errorCode = ec;
+    if (transfer.payloadTransfer != nullptr)
+        transfer.payloadTransfer->cancel();
     else
-        transport->notifySendListener(&transfers->second.packet, ec);
+        transport->notifySendListener(&transfer.packet, ec);
 }
 
 void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& payloadTransfer)
@@ -250,63 +249,46 @@ void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& payloadTr
 
 void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTransfer)
 {
-    auto status = headTransfer->getStatus();
-    auto data = static_cast<CallbackData*>(headTransfer->getUserData());
-    auto& packet = data->packet;
-    auto& transport = data->transport;
+    // GET ESSENTIAL DATA:
+    auto* transport = static_cast<UsbTransport*>(headTransfer->getUserData());
+    auto& transfer = transport->mReceiveTransfer;
+    auto& packet = transfer.packet;
 
-    if (status != LibusbTransfer::COMPLETED) { // if not completed, print error and skip
-        std::cerr << "APayload receive headTransfer has not been completed" << std::endl;
-    }
-    else { // if completed
-        auto* message = reinterpret_cast<AMessage*>(headTransfer->getBuffer()); // interpret pointer to buffer
-                                                                            // as pointer to AMessage
-        packet.message = *message;  // copy incoming message to the packet
-
-        // if dataLength is greater than 0 then try to read payload
-        if (packet.message.dataLength > 0) {
-            auto payloadTransfer = LibusbTransfer::createTransfer();
-            // TODO: Safe memory allocation
-            auto payloadBuffer = static_cast<unsigned char*>(std::malloc(MAX_PAYLOAD));
-            auto payloadSize = MAX_PAYLOAD;
-            payloadTransfer->fillBulk(transport->mHandle,
-                                      transport->mInterfaceData.readEndpointAddress,
-                                      payloadBuffer,
-                                      payloadSize,
-                                      sReceivePayloadCallback,
-                                      data,
-                                      0);
-
-            payloadTransfer->submit();
-            return; // if we submit new transport we should not free data
-        }
+    std::scoped_lock lock(transport->mReceiveMutex);
+    ErrorCode ec = getTransferStatus(headTransfer->getStatus());
+    // OK:
+    if (ec == OK) {
+        // Message already written in place
+        if (packet.getMessage().dataLength != 0)
+            transport->notifySendListener(&packet, ec);
+        else
+            transfer.payloadTransfer->submit();
+        return;
     }
 
-    transport->notifyReceiveListener(packet, status);
-    delete data;
+    // NOT OK:
+    transfer.errorCode = ec;
+    transport->notifySendListener(&transfer.packet, ec);
+
 }
 
 void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::Pointer& payloadTransfer)
 {
-    auto status = payloadTransfer->getStatus();
-    auto data = static_cast<CallbackData*>(payloadTransfer->getUserData());
-    auto& transport = data->transport;
-    auto& packet = data->packet;
+    // GET ESSENTIAL DATA:
+    auto* transport = static_cast<UsbTransport*>(payloadTransfer->getUserData());
+    auto& transfer = transport->mReceiveTransfer;
+    auto& packet = transfer.packet;
 
-    if (status != LibusbTransfer::COMPLETED) {
-        std::cerr << "APayload receive payloadTransfer has not been completed" << std::endl;
+    std::scoped_lock lock(transport->mReceiveMutex);
+    ErrorCode ec = getTransferStatus(payloadTransfer->getStatus());
+
+    if (ec == OK) {
+        // Payload already in place
+        packet.getPayload().setDataSize(payloadTransfer->getActualLength());
+        //TODO: Should be packet.getMessage().dataLength ?
     }
-    else {
-        auto buffer = payloadTransfer->getBuffer();
-        auto length = payloadTransfer->getLength();
-        auto actualLength = payloadTransfer->getActualLength();
-        auto payload = new SimplePayload(buffer, length);  // SimplePayload is now responsible for the memory
-        payload->resize(actualLength);              // Shrink
-        packet.payload = payload;                   // APacket is now responsible for the payload
-        packet.deletePayloadOnDestruction = true;
-    }
-    transport->notifyReceiveListener(packet, status);
-    delete data;
+
+    //TODO: Error check
 }
 
 Transport::ErrorCode UsbTransport::getTransferStatus(int status) {
@@ -316,4 +298,52 @@ Transport::ErrorCode UsbTransport::getTransferStatus(int status) {
         return ErrorCode::CANCELLED;
     else
         return ErrorCode::UNDERLYING_ERROR;
+}
+
+const AMessage& UsbTransport::messageFromBuffer(const uint8_t* buffer) {
+    return *reinterpret_cast<const AMessage*>(buffer);
+}
+
+void UsbTransport::prepareReceivePacket() {
+    std::scoped_lock lock(mReceiveMutex);
+    auto& packet = mReceiveTransfer.packet;
+
+    if (!packet.hasPayload())
+        packet.movePayloadIn(APayload{mMaxPayloadSize});
+    else
+        packet.getPayload().resizeBuffer(mMaxPayloadSize);
+
+
+}
+
+void UsbTransport::setVersion(uint32_t version) {
+    Transport::setVersion(version);
+    prepareReceivePacket();
+    prepareReceiveTransfers();
+}
+
+void UsbTransport::prepareReceiveTransfers() {
+    // Transfers point to the exact location of UsbTransport object
+    // This function MUST be called on move operations
+    auto headBuffer = reinterpret_cast<unsigned char*>(&mReceiveTransfer.packet.getMessage());
+    auto headBufferSize = sizeof(AMessage);
+    auto headTransfer = LibusbTransfer::createTransfer();
+    headTransfer->fillBulk(mHandle,
+                           mInterfaceData.readEndpointAddress,
+                           headBuffer,
+                           headBufferSize,
+                           sReceiveHeadCallback,
+                           this,
+                           0);
+
+    auto payloadBuffer = mReceiveTransfer.packet.getPayload().getBuffer();
+    auto payloadBufferSize = mReceiveTransfer.packet.getPayload().getBufferSize();
+    auto payloadTransfer = LibusbTransfer::createTransfer();
+    payloadTransfer->fillBulk(mHandle,
+                              mInterfaceData.readEndpointAddress,
+                              payloadBuffer,
+                              payloadBufferSize,
+                              sReceivePayloadCallback,
+                              this,
+                              0);
 }
