@@ -7,11 +7,18 @@
 
 class Transport {
 public:
-    using SendListener = std::function<void(const APacket&, int errorCode)>;
-    using ReceiveListener = std::function<void(const APacket&, int errorCode)>;
+    enum ErrorCode {
+        OK = 0,
+        CANCELLED,
+        TRANSPORT_ERROR,
+        UNDERLYING_ERROR
+    };
+
+    using SendListener = std::function<void(const APacket*, ErrorCode errorCode)>;
+    using ReceiveListener = std::function<void(const APacket*, ErrorCode errorCode)>;
 
 public:
-    virtual void write(const APacket& packet) = 0;
+    virtual void send(APacket&& packet) = 0;
     virtual void receive() = 0;
 
     void setSendListener(SendListener);
@@ -19,16 +26,21 @@ public:
     void setReceiveListener(ReceiveListener);
     void resetReceiveListener();
 
+    void setVersion(uint32_t version);
     [[nodiscard]] uint32_t getVersion() const;
 
+    void setMaxPayloadSize(size_t maxPayloadSize);
+    [[nodiscard]] size_t getMaxPayloadSize() const;
+
 protected:
-    void notifySendListener(const APacket&, int errorCode);
-    void notifyReceiveListener(const APacket&, int errorCode);
+    void notifySendListener(const APacket*, ErrorCode errorCode);
+    void notifyReceiveListener(const APacket*, ErrorCode errorCode);
 
     SendListener mSendListener;
     ReceiveListener mReceiveListener;
 
     uint32_t mVersion = A_VERSION_MIN;
+    size_t mMaxPayloadSize = MAX_PAYLOAD_V1;
 };
 
 

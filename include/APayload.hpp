@@ -20,6 +20,8 @@ public:
     void resizeBuffer(size_t newSize);
     void setDataSize(size_t newSize);
 
+    uint8_t* getBuffer();
+
     APayload& operator=(APayload&&) noexcept ;
     APayload& operator=(const APayload&);
 

@@ -3,6 +3,9 @@
 
 #include <memory>
 #include <optional>
+#include <map>
+#include <mutex>
+
 #include <Libusb.hpp>
 #include <LibusbDevice.hpp>
 #include <LibusbDeviceHandle.hpp>
@@ -21,9 +24,6 @@ struct InterfaceData {
 class UsbTransport
         : public Transport
 {
-    using SendListener = std::function<void(const APacket&, int errorCode)>;
-    using ReceiveListener = std::function<void(const APacket&, int errorCode)>;
-
 public:
     UsbTransport(UsbTransport&)       = delete;
     UsbTransport(const UsbTransport&) = delete;
@@ -37,7 +37,7 @@ public: // Creation
     [[nodiscard]] bool isOk() const;
 
 public: // Transport Interface
-    void write(const APacket& packet) override;
+    void send(APacket&& packet) override;
     void receive() override;
 
 public: // Callbacks
@@ -48,23 +48,51 @@ public: // Callbacks
     static void sReceivePayloadCallback(const LibusbTransfer::Pointer&);
 
 private:
-    explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
-    LibusbDevice mDevice;
-    LibusbDeviceHandle mHandle;
-    InterfaceData mInterfaceData;
-
-    uint8_t mFlags;
     enum Flags {
         TRANSPORT_IS_OK   = 1<<0,
         INTERFACE_CLAIMED = 1<<1
     };
 
+    struct CallbackData {
+        UsbTransport* transport = {};
+        size_t transferId = {};
+    };
+
+    struct Transfer {
+        Transfer() = default;
+        inline explicit Transfer(APacket&& packet)
+            : packet(std::move(packet))
+            , messageTransfer()
+            , payloadTransfer()
+            , errorCode(OK)
+        {}
+
+        APacket packet;
+        LibusbTransfer::Pointer messageTransfer;
+        LibusbTransfer::Pointer payloadTransfer;
+        ErrorCode errorCode = OK;
+    };
+
+private:
+    explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
 
-    struct CallbackData {
-        APacket packet{};
-        UsbTransport* transport{};
-    };
+    static ErrorCode getTransferStatus(int);
+
+private:
+    LibusbDevice mDevice;
+    LibusbDeviceHandle mHandle;
+    InterfaceData mInterfaceData;
+
+    std::mutex mSendMutex;
+    std::map<size_t /* transferId */, Transfer> mSendTransfers;
+    //TODO: Replace map by more efficient container
+
+    std::mutex mReceiveMutex;
+    APacket mReceivePacket;
+    std::optional<LibusbTransfer> mReceiveTransfer;
+
+    uint8_t mFlags;
 
 };
 

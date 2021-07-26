@@ -90,3 +90,7 @@ APayload& APayload::operator=(const APayload& other)
     setDataSize(other.mDataSize);
     return *this;
 }
+
+uint8_t *APayload::getBuffer() {
+    return mBuffer;
+}
