@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/adb_test.iml" filepath="$PROJECT_DIR$/.idea/adb_test.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/adb_lib.iml" filepath="$PROJECT_DIR$/.idea/adb_lib.iml" />
     </modules>
   </component>
 </project>

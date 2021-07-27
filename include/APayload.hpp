@@ -1,5 +1,5 @@
-#ifndef ADB_TEST_APAYLOAD_HPP
-#define ADB_TEST_APAYLOAD_HPP
+#ifndef ADB_LIB_APAYLOAD_HPP
+#define ADB_LIB_APAYLOAD_HPP
 
 #include <cstddef>
 #include <cstdint>
@@ -32,4 +32,4 @@ private:
 
 };
 
-#endif //ADB_TEST_APAYLOAD_HPP
+#endif //ADB_LIB_APAYLOAD_HPP

@@ -1,5 +1,5 @@
-#ifndef ADB_TEST_APACKET_HPP
-#define ADB_TEST_APACKET_HPP
+#ifndef ADB_LIB_APACKET_HPP
+#define ADB_LIB_APACKET_HPP
 
 #include <memory>
 #include <optional>
@@ -57,4 +57,4 @@ private:
 
 };
 
-#endif //ADB_TEST_APACKET_HPP
+#endif //ADB_LIB_APACKET_HPP

@@ -1,5 +1,5 @@
-#ifndef ADB_TEST_TRANSPORT_HPP
-#define ADB_TEST_TRANSPORT_HPP
+#ifndef ADB_LIB_TRANSPORT_HPP
+#define ADB_LIB_TRANSPORT_HPP
 
 #include <functional>
 #include "APacket.hpp"
@@ -43,4 +43,4 @@ protected:
 };
 
 
-#endif //ADB_TEST_TRANSPORT_HPP
+#endif //ADB_LIB_TRANSPORT_HPP

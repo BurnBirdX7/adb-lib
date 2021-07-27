@@ -1,5 +1,5 @@
-#ifndef ADB_TEST_ADB_HPP
-#define ADB_TEST_ADB_HPP
+#ifndef ADB_LIB_ADB_HPP
+#define ADB_LIB_ADB_HPP
 
 #include <cstdint>
 
@@ -26,4 +26,4 @@ constexpr size_t LINUX_MAX_SOCKET_SIZE = 4194304;
 #define ADB_SUBCLASS 0x42
 #define ADB_PROTOCOL 0x1
 
-#endif //ADB_TEST_ADB_HPP
+#endif //ADB_LIB_ADB_HPP

@@ -1,5 +1,5 @@
-#ifndef ADB_TEST_USBTRANSPORT_HPP
-#define ADB_TEST_USBTRANSPORT_HPP
+#ifndef ADB_LIB_USBTRANSPORT_HPP
+#define ADB_LIB_USBTRANSPORT_HPP
 
 #include <memory>
 #include <optional>
@@ -110,4 +110,4 @@ private:
 
 
 
-#endif //ADB_TEST_USBTRANSPORT_HPP
+#endif //ADB_LIB_USBTRANSPORT_HPP

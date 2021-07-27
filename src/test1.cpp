@@ -108,40 +108,40 @@ int main()
         auto& transport = *optTransport;
 
         APacket packet{};
-        packet.setNewMessage(AMessage{.command = A_CNXN, .arg0 = A_VERSION, .arg1 = MAX_PAYLOAD_V1}, false);
+        packet.setMessage(AMessage{.command = A_CNXN, .arg0 = A_VERSION, .arg1 = MAX_PAYLOAD_V1});
 
         // stupid copy
         auto str = "host::features=" + featureSetToString(getFeatureSet());
-        auto payload = std::make_unique<SimplePayload>(str.size());
-        auto* payloadData = payload->getData();
-        for (size_t i = 0; i < str.size(); ++i)
-            payloadData[i] = str[i];
+        auto len = str.size();
+        auto payload = APayload(len);
+        for (size_t i = 0; i < len; ++i)
+            payload[i] = str[i];
 
-        packet.setNewPayload(payload.get(), true, false);
+        packet.movePayloadIn(std::move(payload));
 
         std::mutex mutex{};
         std::condition_variable cv{};
         int libusbError = 0;
 
         // Create Listeners
-        transport.setSendListener([&] (const APacket& sentPacket, int errorCode) {
+        transport.setSendListener([&] (const APacket* sentPacket, int errorCode) {
             std::unique_lock lock(mutex);
             libusbError = errorCode;
             lock.unlock();
             cv.notify_one();
         });
-        transport.setReceiveListener([&] (const APacket& receivedPacket, int errorCode) {
+        transport.setReceiveListener([&] (const APacket* receivedPacket, int errorCode) {
             std::unique_lock lock(mutex);
             libusbError = errorCode;
-            packet.message = receivedPacket.message;    // copy head
-            packet.payload = new SimplePayload(*dynamic_cast<SimplePayload*>(receivedPacket.payload));  // copy payload
+            packet.setMessage(receivedPacket->getMessage());     // copy head
+            packet.copyPayloadIn(receivedPacket->getPayload());  // copy payload
             lock.unlock();
             cv.notify_one();
         });
 
         std::unique_lock lock(mutex);
         std::cout << "Sending..." << std::endl;
-        transport.send(packet);
+        transport.send(APacket(packet)); // send copy
         cv.wait(lock);
 
         if (libusbError != LibusbTransfer::COMPLETED) {
@@ -157,20 +157,19 @@ int main()
             return 1;
         }
 
-        std::cout << "Head: " << packet.message.command << std::endl;
-        std::cout << "APayload (size: " << packet.message.dataLength << "): "<< std::endl;
-        if (packet.payload != nullptr) {
+        std::cout << "Head: " << packet.getMessage().command << std::endl;
+        std::cout << "APayload (size: " << packet.getMessage().dataLength << "): "<< std::endl;
+        if (packet.hasPayload()) {
             std::cout << "\t";
-            for(size_t i = 0; i < packet.payload->getLength(); ++i)
-                std::cout << packet.payload->getData()[i];
+            auto size = packet.getPayload().getSize();
+            for(size_t i = 0; i < size; ++i)
+                std::cout << packet.getPayload()[i];
             std::cout << std::endl;
         }
-
     }
     catch (LibusbError& error) {
         OBJLIBUSB_IOSTREAM_REPORT_ERROR(std::cerr, error);
     }
-
 
     return 0;
 }

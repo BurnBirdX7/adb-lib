@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.19)
-project(adb_test)
+project(adb_lib)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -9,11 +9,14 @@ set(ADBLIB_SRC
         src/Transport.cpp
         src/APayload.cpp)
 
-add_executable(adbtest ${ADBLIB_SRC} src/main.cpp)
 add_library(adblib ${ADBLIB_SRC})
 add_subdirectory(obj-libusb)
 
-target_link_libraries(adbtest obj_libusb)
+# build
 target_link_libraries(adblib obj_libusb)
-target_include_directories(adbtest PUBLIC include/ obj-libusb/include/)
 target_include_directories(adblib PUBLIC include/ obj-libusb/include/)
+
+# test
+add_executable(test1 ${ADBLIB_SRC} src/test1.cpp)
+target_link_libraries(test1 obj_libusb)
+target_include_directories(test1 PUBLIC include/ obj-libusb/include/)
