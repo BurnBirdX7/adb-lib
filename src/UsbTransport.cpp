@@ -193,7 +193,7 @@ void UsbTransport::receive()
 void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer)
 {
     // GET ESSENTIAL DATA:
-    std::unique_ptr<CallbackData> callbackData{static_cast<CallbackData*>(headTransfer->getUserData())};
+    auto callbackData = static_cast<CallbackData*>(headTransfer->getUserData());
     auto* transport = callbackData->transport;
     auto transferId = callbackData->transferId;
 
@@ -201,34 +201,23 @@ void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer
     std::scoped_lock lock(transport->mSendMutex);
     auto transfers = transport->mSendTransfers.find(transferId);
     if (transfers == transport->mSendTransfers.end()) {
-        transport->notifySendListener(nullptr, TRANSPORT_ERROR);
+        transport->finishSendTransfer(callbackData, transfers);
         return;
     } // !
 
     auto& transfer = transfers->second;
+    transfer.errorCode = getTransferStatus(headTransfer->getStatus());
 
-    if (transfer.payloadTransfer != nullptr)
-        callbackData.release();
-
-    ErrorCode ec = getTransferStatus(headTransfer->getStatus());
-    // OK:
-    if (ec == ErrorCode::OK) {
-        if (transfer.payloadTransfer == nullptr)
-            transport->notifySendListener(&transfer.packet, ec);
-        return;
-    }
-
-    // NOT OK:
-    transfer.errorCode = ec;
-    if (transfer.payloadTransfer != nullptr)
+    if (transfer.payloadTransfer == nullptr)    // if there's no payload, we finish transfer
+        transport->finishSendTransfer(callbackData, transfers);
+    else if (transfer.errorCode != OK)          // if there's a payload and head transfer failed
         transfer.payloadTransfer->cancel();
-    else
-        transport->notifySendListener(&transfer.packet, ec);
+    // else // if there's a payload and transfer is complete
 }
 
 void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& payloadTransfer)
 {
-    std::unique_ptr<CallbackData> callbackData{static_cast<CallbackData*>(payloadTransfer->getUserData())};
+    auto callbackData = static_cast<CallbackData*>(payloadTransfer->getUserData());
     auto* transport = callbackData->transport;
     auto transferId = callbackData->transferId;
 
@@ -236,15 +225,15 @@ void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& payloadTr
     std::scoped_lock lock(transport->mSendMutex);
     auto transfers = transport->mSendTransfers.find(transferId);
     if (transfers == transport->mSendTransfers.end()) {
-        transport->notifySendListener(nullptr, TRANSPORT_ERROR);
+        transport->finishSendTransfer(callbackData, transfers);
         return;
     } // !
 
     ErrorCode ec = getTransferStatus(payloadTransfer->getStatus());
-    if (ec == CANCELLED && transfers->second.errorCode != OK)   // if this transfer was cancelled and previous transfer
-        ec = transfers->second.errorCode;                       // is not ok, report first's transfer error
+    if (ec != CANCELLED || transfers->second.errorCode == OK)   // if this transfer wasn't cancelled or
+        transfers->second.errorCode = ec;                       // if previous transfer is ok, report this transfer's error code
 
-    transport->notifySendListener(&transfers->second.packet, ec);
+    transport->finishSendTransfer(callbackData, transfers);
 }
 
 void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTransfer)
@@ -255,20 +244,12 @@ void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTrans
     auto& packet = transfer.packet;
 
     std::scoped_lock lock(transport->mReceiveMutex);
-    ErrorCode ec = getTransferStatus(headTransfer->getStatus());
-    // OK:
-    if (ec == OK) {
-        // Message already written in place
-        if (packet.getMessage().dataLength != 0)
-            transport->notifySendListener(&packet, ec);
-        else
-            transfer.payloadTransfer->submit();
-        return;
-    }
+    transfer.errorCode = getTransferStatus(headTransfer->getStatus());
 
-    // NOT OK:
-    transfer.errorCode = ec;
-    transport->notifySendListener(&transfer.packet, ec);
+    if (transfer.errorCode == OK && packet.getMessage().dataLength != 0)
+        transfer.payloadTransfer->submit();
+    else    // if there's error or dataLength equals zero
+        transport->finishReceiveTransfer();
 
 }
 
@@ -280,15 +261,11 @@ void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::Pointer& payloa
     auto& packet = transfer.packet;
 
     std::scoped_lock lock(transport->mReceiveMutex);
-    ErrorCode ec = getTransferStatus(payloadTransfer->getStatus());
+    transfer.errorCode = getTransferStatus(payloadTransfer->getStatus());
 
-    if (ec == OK) {
-        // Payload already in place
-        packet.getPayload().setDataSize(payloadTransfer->getActualLength());
-        //TODO: Should be packet.getMessage().dataLength ?
-    }
-
-    //TODO: Error check
+    // Doesn't matter if there's an error or not
+    packet.getPayload().setDataSize(payloadTransfer->getActualLength());
+    transport->finishReceiveTransfer();
 }
 
 Transport::ErrorCode UsbTransport::getTransferStatus(int status) {
@@ -346,4 +323,29 @@ void UsbTransport::prepareReceiveTransfers() {
                               sReceivePayloadCallback,
                               this,
                               0);
+}
+
+void UsbTransport::finishSendTransfer(UsbTransport::CallbackData* callbackData,
+                                      UsbTransport::TransfersContainer::iterator mapIterator)
+{
+    delete callbackData;
+
+    const APacket* packet;
+    ErrorCode ec;
+    if (mapIterator == mSendTransfers.end()) {
+        packet = nullptr;
+        ec = TRANSPORT_ERROR;
+    }
+    else {
+        packet = &mapIterator->second.packet;
+        ec = mapIterator->second.errorCode;
+    }
+
+    mSendTransfers.erase(mapIterator);
+    notifySendListener(packet, ec);
+}
+
+void UsbTransport::finishReceiveTransfer() {
+    notifyReceiveListener(&mReceiveTransfer.packet, mReceiveTransfer.errorCode);
+    isReceiving = false;
 }

@@ -14,30 +14,29 @@ public:
         UNDERLYING_ERROR
     };
 
-    using SendListener = std::function<void(const APacket*, ErrorCode errorCode)>;
-    using ReceiveListener = std::function<void(const APacket*, ErrorCode errorCode)>;
+    using Listener = std::function<void(const APacket*, ErrorCode errorCode)>;
 
 public:
     virtual void send(APacket&& packet) = 0;
     virtual void receive() = 0;
 
-    void setSendListener(SendListener);
-    void resetSendListener();
-    void setReceiveListener(ReceiveListener);
-    void resetReceiveListener();
+    void setSendListener(Listener);
+    void setReceiveListener(Listener);
 
     virtual void setVersion(uint32_t version);
-    [[nodiscard]] uint32_t getVersion() const;
-
     virtual void setMaxPayloadSize(size_t maxPayloadSize);
+    void resetSendListener();
+    void resetReceiveListener();
+
+    [[nodiscard]] uint32_t getVersion() const;
     [[nodiscard]] size_t getMaxPayloadSize() const;
 
 protected:
     void notifySendListener(const APacket*, ErrorCode errorCode);
     void notifyReceiveListener(const APacket*, ErrorCode errorCode);
 
-    SendListener mSendListener;
-    ReceiveListener mReceiveListener;
+    Listener mSendListener;
+    Listener mReceiveListener;
 
     uint32_t mVersion = A_VERSION_MIN;
     size_t mMaxPayloadSize = MAX_PAYLOAD_V1;

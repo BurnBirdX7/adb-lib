@@ -75,6 +75,9 @@ private:
         ErrorCode errorCode = OK;
     };
 
+
+    using TransfersContainer = std::map<size_t /* transferId */, Transfer>;
+
 private:
     explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
@@ -85,13 +88,16 @@ private:
     void prepareReceivePacket();
     void prepareReceiveTransfers();
 
+    void finishSendTransfer(CallbackData*, TransfersContainer::iterator);
+    void finishReceiveTransfer();
+
 private:
     LibusbDevice mDevice;
     LibusbDeviceHandle mHandle;
     InterfaceData mInterfaceData;
 
     std::mutex mSendMutex;
-    std::map<size_t /* transferId */, Transfer> mSendTransfers;
+    TransfersContainer mSendTransfers;
     //TODO: Replace map by more efficient container
 
     std::mutex mReceiveMutex;

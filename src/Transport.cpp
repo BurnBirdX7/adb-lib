@@ -2,12 +2,12 @@
 
 #include <utility>
 
-void Transport::setSendListener(Transport::SendListener listener)
+void Transport::setSendListener(Transport::Listener listener)
 {
     mSendListener = std::move(listener);
 }
 
-void Transport::setReceiveListener(Transport::ReceiveListener listener)
+void Transport::setReceiveListener(Transport::Listener listener)
 {
     mReceiveListener = std::move(listener);
 }
