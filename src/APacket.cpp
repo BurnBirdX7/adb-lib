@@ -86,3 +86,8 @@ void APacket::resetChecksum()
 {
     mMessage.dataCheck = 0;
 }
+
+void APacket::updateMessageDataLength() {
+    if (mPayload.has_value())
+        mMessage.dataLength = mPayload->getSize();
+}

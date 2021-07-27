@@ -74,7 +74,6 @@ int main()
 {
     auto context = LibusbContext::makeContext();
 
-
     auto optTransport = [&] () -> std::optional<UsbTransport> {
         auto list = context->getDeviceVector();
         if (list.empty()) {
@@ -108,16 +107,19 @@ int main()
         auto& transport = *optTransport;
 
         APacket packet{};
-        packet.setMessage(AMessage{.command = A_CNXN, .arg0 = A_VERSION, .arg1 = MAX_PAYLOAD_V1});
+        packet.setMessage(AMessage::make(A_CNXN, A_VERSION_MIN, MAX_PAYLOAD_V1));
 
         // stupid copy
         auto str = "host::features=" + featureSetToString(getFeatureSet());
         auto len = str.size();
         auto payload = APayload(len);
+        payload.setDataSize(len);
         for (size_t i = 0; i < len; ++i)
             payload[i] = str[i];
 
         packet.movePayloadIn(std::move(payload));
+        packet.updateMessageDataLength();
+        packet.computeChecksum();
 
         std::mutex mutex{};
         std::condition_variable cv{};
@@ -157,7 +159,11 @@ int main()
             return 1;
         }
 
-        std::cout << "Head: " << packet.getMessage().command << std::endl;
+        std::cout << "Head: " << packet.getMessage().command << ", ";
+        for(size_t i = 0; i < 4; ++i)
+            std::cout << reinterpret_cast<unsigned char*>(&packet.getMessage().command)[i];
+        std::cout << std::endl;
+
         std::cout << "APayload (size: " << packet.getMessage().dataLength << "): "<< std::endl;
         if (packet.hasPayload()) {
             std::cout << "\t";

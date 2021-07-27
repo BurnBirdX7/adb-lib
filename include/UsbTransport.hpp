@@ -102,7 +102,7 @@ private:
 
     std::mutex mReceiveMutex;
     Transfer mReceiveTransfer;
-    bool isReceiving;
+    bool isReceiving = false;
 
     uint8_t mFlags;
 

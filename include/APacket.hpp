@@ -51,6 +51,8 @@ public:
     void computeChecksum();
     void resetChecksum();
 
+    void updateMessageDataLength();
+
 private:
     AMessage mMessage = {};
     std::optional<APayload> mPayload;

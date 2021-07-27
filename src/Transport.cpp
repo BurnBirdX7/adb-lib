@@ -35,7 +35,8 @@ void Transport::notifyReceiveListener(const APacket* packet, ErrorCode errorCode
 }
 
 
-void Transport::setVersion(uint32_t version) {
+void Transport::setVersion(uint32_t version)
+{
     mVersion = version;
 }
 

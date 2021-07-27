@@ -102,7 +102,7 @@ UsbTransport::UsbTransport(UsbTransport&& other) noexcept
         , mFlags(other.mFlags)
 {
     other.mFlags = 0; // other is NOT ok and interface is NOT claimed
-
+    prepareReceivePacket();
     prepareReceiveTransfers();
 }
 
@@ -149,7 +149,7 @@ void UsbTransport::send(APacket&& packet)
     std::scoped_lock lock(mSendMutex);
 
     static size_t transferId = 0;
-    auto res = mSendTransfers.emplace(transferId++, std::move(packet));
+    auto res = mSendTransfers.emplace(++transferId, std::move(packet));
     auto& transfers = res.first->second; // res.[iterator]->[value]
 
     auto* callbackData = new CallbackData{.transport = this,            // Has to be deleted in a callback
@@ -187,7 +187,6 @@ void UsbTransport::receive()
 
     // transfers should be already prepared
     mReceiveTransfer.messageTransfer->submit();
-
 }
 
 void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer)
@@ -304,8 +303,8 @@ void UsbTransport::prepareReceiveTransfers() {
     // This function MUST be called on move operations
     auto headBuffer = reinterpret_cast<unsigned char*>(&mReceiveTransfer.packet.getMessage());
     auto headBufferSize = sizeof(AMessage);
-    auto headTransfer = LibusbTransfer::createTransfer();
-    headTransfer->fillBulk(mHandle,
+    mReceiveTransfer.messageTransfer = LibusbTransfer::createTransfer();
+    mReceiveTransfer.messageTransfer->fillBulk(mHandle,
                            mInterfaceData.readEndpointAddress,
                            headBuffer,
                            headBufferSize,
@@ -313,10 +312,11 @@ void UsbTransport::prepareReceiveTransfers() {
                            this,
                            0);
 
+
     auto payloadBuffer = mReceiveTransfer.packet.getPayload().getBuffer();
     auto payloadBufferSize = mReceiveTransfer.packet.getPayload().getBufferSize();
-    auto payloadTransfer = LibusbTransfer::createTransfer();
-    payloadTransfer->fillBulk(mHandle,
+    mReceiveTransfer.payloadTransfer = LibusbTransfer::createTransfer();
+    mReceiveTransfer.payloadTransfer->fillBulk(mHandle,
                               mInterfaceData.readEndpointAddress,
                               payloadBuffer,
                               payloadBufferSize,
@@ -339,9 +339,8 @@ void UsbTransport::finishSendTransfer(UsbTransport::CallbackData* callbackData,
     else {
         packet = &mapIterator->second.packet;
         ec = mapIterator->second.errorCode;
+        mSendTransfers.erase(mapIterator);
     }
-
-    mSendTransfers.erase(mapIterator);
     notifySendListener(packet, ec);
 }
 
