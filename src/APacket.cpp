@@ -66,7 +66,9 @@ bool APacket::hasPayload()
 APayload APacket::movePayloadOut()
 {
     assert(mPayload.has_value() && "Tried to move payload from APacket with no payload");
-    return std::move(*mPayload);
+    APayload pd = std::move(*mPayload);
+    mPayload.reset();
+    return pd;
 }
 
 void APacket::computeChecksum()

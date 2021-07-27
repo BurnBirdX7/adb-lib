@@ -17,6 +17,6 @@ target_link_libraries(adblib obj_libusb)
 target_include_directories(adblib PUBLIC include/ obj-libusb/include/)
 
 # test
-add_executable(test1 ${ADBLIB_SRC} src/test1.cpp)
-target_link_libraries(test1 obj_libusb)
-target_include_directories(test1 PUBLIC include/ obj-libusb/include/)
+add_executable(test1 src/test1.cpp)
+target_link_libraries(test1 adblib)
+
