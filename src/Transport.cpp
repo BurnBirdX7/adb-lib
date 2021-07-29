@@ -34,17 +34,6 @@ void Transport::notifyReceiveListener(const APacket* packet, ErrorCode errorCode
         mReceiveListener(packet, errorCode);
 }
 
-
-void Transport::setVersion(uint32_t version)
-{
-    mVersion = version;
-}
-
-uint32_t Transport::getVersion() const
-{
-    return mVersion;
-}
-
 void Transport::setMaxPayloadSize(size_t maxPayloadSize) {
     mMaxPayloadSize = maxPayloadSize;
 }

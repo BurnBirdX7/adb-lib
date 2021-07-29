@@ -40,7 +40,7 @@ public: // Transport Interface
     void send(APacket&& packet) override;
     void receive() override;
 
-    void setVersion(uint32_t version) override;
+    void setMaxPayloadSize(size_t maxPayloadSize) override;
 
 public: // Callbacks
     static void sSendHeadCallback(const LibusbTransfer::Pointer&);
@@ -85,8 +85,7 @@ private:
     static ErrorCode getTransferStatus(int);
     static const AMessage& messageFromBuffer(const uint8_t* buffer);
 
-    void prepareReceivePacket();
-    void prepareReceiveTransfers();
+    void prepareToReceive();
 
     void finishSendTransfer(CallbackData*, TransfersContainer::iterator);
     void finishReceiveTransfer();

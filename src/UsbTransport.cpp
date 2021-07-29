@@ -25,8 +25,7 @@ UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& inte
         mFlags &= ~TRANSPORT_IS_OK;
     }
 
-    prepareReceivePacket();
-    prepareReceiveTransfers();
+    prepareToReceive();
 }
 
 std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& device)
@@ -102,8 +101,7 @@ UsbTransport::UsbTransport(UsbTransport&& other) noexcept
         , mFlags(other.mFlags)
 {
     other.mFlags = 0; // other is NOT ok and interface is NOT claimed
-    prepareReceivePacket();
-    prepareReceiveTransfers();
+    prepareToReceive();
 }
 
 UsbTransport::~UsbTransport()
@@ -280,49 +278,37 @@ const AMessage& UsbTransport::messageFromBuffer(const uint8_t* buffer) {
     return *reinterpret_cast<const AMessage*>(buffer);
 }
 
-void UsbTransport::prepareReceivePacket() {
+void UsbTransport::prepareToReceive() {
     std::scoped_lock lock(mReceiveMutex);
     auto& packet = mReceiveTransfer.packet;
-
     if (!packet.hasPayload())
         packet.movePayloadIn(APayload{mMaxPayloadSize});
     else
         packet.getPayload().resizeBuffer(mMaxPayloadSize);
 
-
-}
-
-void UsbTransport::setVersion(uint32_t version) {
-    Transport::setVersion(version);
-    prepareReceivePacket();
-    prepareReceiveTransfers();
-}
-
-void UsbTransport::prepareReceiveTransfers() {
-    // Transfers point to the exact location of UsbTransport object
-    // This function MUST be called on move operations
     auto headBuffer = reinterpret_cast<unsigned char*>(&mReceiveTransfer.packet.getMessage());
     auto headBufferSize = sizeof(AMessage);
     mReceiveTransfer.messageTransfer = LibusbTransfer::createTransfer();
     mReceiveTransfer.messageTransfer->fillBulk(mHandle,
-                           mInterfaceData.readEndpointAddress,
-                           headBuffer,
-                           headBufferSize,
-                           sReceiveHeadCallback,
-                           this,
-                           0);
-
+                                               mInterfaceData.readEndpointAddress,
+                                               headBuffer,
+                                               headBufferSize,
+                                               sReceiveHeadCallback,
+                                               this,
+                                               0);
 
     auto payloadBuffer = mReceiveTransfer.packet.getPayload().getBuffer();
     auto payloadBufferSize = mReceiveTransfer.packet.getPayload().getBufferSize();
     mReceiveTransfer.payloadTransfer = LibusbTransfer::createTransfer();
     mReceiveTransfer.payloadTransfer->fillBulk(mHandle,
-                              mInterfaceData.readEndpointAddress,
-                              payloadBuffer,
-                              payloadBufferSize,
-                              sReceivePayloadCallback,
-                              this,
-                              0);
+                                               mInterfaceData.readEndpointAddress,
+                                               payloadBuffer,
+                                               payloadBufferSize,
+                                               sReceivePayloadCallback,
+                                               this,
+                                               0);
+
+
 }
 
 void UsbTransport::finishSendTransfer(UsbTransport::CallbackData* callbackData,
@@ -347,4 +333,10 @@ void UsbTransport::finishSendTransfer(UsbTransport::CallbackData* callbackData,
 void UsbTransport::finishReceiveTransfer() {
     notifyReceiveListener(&mReceiveTransfer.packet, mReceiveTransfer.errorCode);
     isReceiving = false;
+}
+
+void UsbTransport::setMaxPayloadSize(size_t maxPayloadSize)
+{
+    Transport::setMaxPayloadSize(maxPayloadSize);
+    prepareToReceive();
 }
