@@ -74,7 +74,7 @@ int main()
 {
     auto context = LibusbContext::makeContext();
 
-    auto optTransport = [&] () -> std::optional<UsbTransport> {
+    auto uniqueTransport = [&] () -> std::unique_ptr<UsbTransport> {
         auto list = context->getDeviceVector();
         if (list.empty()) {
             std::cerr << "Cannot get device list" << std::endl;
@@ -82,12 +82,12 @@ int main()
         }
 
         for (auto& device : list) {
-            auto optTransport = UsbTransport::createTransport(device);
-            if (optTransport) {
+            auto uniqueTransport = UsbTransport::createTransport(device);
+            if (uniqueTransport) {
                 auto deviceDescriptor = device.getDescriptor();
                 std::cout << "Device found. VenID: " << deviceDescriptor->idVendor << ", ProdID: " << deviceDescriptor->idProduct
                           << std::endl;
-                return optTransport;
+                return uniqueTransport;
             }
         }
 
@@ -97,14 +97,14 @@ int main()
     auto thread = context->spawnEventHandlingThread();
     thread.detach();
 
-    if (!optTransport) {
+    if (!uniqueTransport) {
         std::cerr << "Cannot create transport" << std::endl;
         return 1;
     }
 
 
     try {
-        auto& transport = *optTransport;
+        auto& transport = *uniqueTransport;
 
         APacket packet{};
         packet.setMessage(AMessage::make(A_CNXN, A_VERSION_MIN, MAX_PAYLOAD_V1));
@@ -159,14 +159,13 @@ int main()
             return 1;
         }
 
-        std::cout << "Head: " << packet.getMessage().command << ", ";
+        std::cout << "Head: ";
         for(size_t i = 0; i < 4; ++i)
             std::cout << reinterpret_cast<unsigned char*>(&packet.getMessage().command)[i];
         std::cout << std::endl;
 
         std::cout << "APayload (size: " << packet.getMessage().dataLength << "): "<< std::endl;
         if (packet.hasPayload()) {
-            std::cout << "\t";
             auto size = packet.getPayload().getSize();
             for(size_t i = 0; i < size; ++i)
                 std::cout << packet.getPayload()[i];

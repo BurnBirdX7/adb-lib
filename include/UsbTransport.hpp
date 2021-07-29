@@ -25,15 +25,19 @@ class UsbTransport
         : public Transport
 {
 public:
+
+public:
     UsbTransport(UsbTransport&)       = delete;
     UsbTransport(const UsbTransport&) = delete;
     UsbTransport(UsbTransport&&) noexcept;
     virtual ~UsbTransport();
 
 public: // Creation
-    static std::optional<UsbTransport> createTransport(const LibusbDevice& device);
+    static std::unique_ptr<UsbTransport> createTransport(const LibusbDevice& device);
+    static std::unique_ptr<UsbTransport> createTransport(const LibusbDevice& device, const InterfaceData& interfaceHint);
     static bool isAdbInterface(const libusb_interface_descriptor& interfaceDescriptor);
-    static bool isEndpointOutput(uint8_t endpointAddress);
+    static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
+
     [[nodiscard]] bool isOk() const;
 
 public: // Transport Interface
@@ -43,13 +47,13 @@ public: // Transport Interface
     void setMaxPayloadSize(size_t maxPayloadSize) override;
 
 public: // Callbacks
-    static void sSendHeadCallback(const LibusbTransfer::Pointer&);
-    static void sSendPayloadCallback(const LibusbTransfer::Pointer&);
+    static void sSendHeadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sSendPayloadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
 
-    static void sReceiveHeadCallback(const LibusbTransfer::Pointer&);
-    static void sReceivePayloadCallback(const LibusbTransfer::Pointer&);
+    static void sReceiveHeadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sReceivePayloadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
 
-private:
+private: // Definitions
     enum Flags {
         TRANSPORT_IS_OK   = 1<<0,
         INTERFACE_CLAIMED = 1<<1
@@ -60,9 +64,9 @@ private:
         size_t transferId = {};
     };
 
-    struct Transfer {
-        Transfer() = default;
-        inline explicit Transfer(APacket&& packet)
+    struct TransferPack {
+        TransferPack() = default;
+        inline explicit TransferPack(APacket&& packet)
             : packet(std::move(packet))
             , messageTransfer()
             , payloadTransfer()
@@ -75,22 +79,22 @@ private:
         ErrorCode errorCode = OK;
     };
 
+    using TransfersContainer = std::map<size_t /* transferPackId */, TransferPack>;
 
-    using TransfersContainer = std::map<size_t /* transferId */, Transfer>;
-
-private:
+private: // Private member-functions
     explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
-    static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
 
-    static ErrorCode getTransferStatus(int);
+    // auxiliary
+    static ErrorCode transferStatusToErrorCode(int libusbTransferErrorCode);
     static const AMessage& messageFromBuffer(const uint8_t* buffer);
+    static bool isEndpointOutput(uint8_t endpointAddress);
 
+    // transfers
     void prepareToReceive();
-
     void finishSendTransfer(CallbackData*, TransfersContainer::iterator);
     void finishReceiveTransfer();
 
-private:
+private: // Fields
     LibusbDevice mDevice;
     LibusbDeviceHandle mHandle;
     InterfaceData mInterfaceData;
@@ -100,7 +104,7 @@ private:
     //TODO: Replace map by more efficient container
 
     std::mutex mReceiveMutex;
-    Transfer mReceiveTransfer;
+    TransferPack mReceiveTransferPack;
     bool isReceiving = false;
 
     uint8_t mFlags;

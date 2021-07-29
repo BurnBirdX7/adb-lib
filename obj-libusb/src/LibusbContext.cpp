@@ -35,7 +35,7 @@ std::vector<LibusbDevice> LibusbContext::getDeviceVector()
 {
     libusb_device** list{};
     ssize_t rc = libusb_get_device_list(mContext, &list);
-    CHECK_ERROR(rc)
+    CHECK_LIBUSB_ERROR(rc)
     std::vector<LibusbDevice> vector{};
     vector.reserve(rc);
     for (size_t i = 0; i < rc; ++i) {
@@ -79,7 +79,7 @@ LibusbContext::HotplugCallbackHandle LibusbContext::registerHotplugCallback(int 
                                               callbackWrapper,
                                               userData,
                                               &handle);
-    CHECK_ERROR(rc)
+    CHECK_LIBUSB_ERROR(rc)
     return handle;
 }
 
@@ -93,7 +93,7 @@ LibusbContext::getSsEndpointCompanionDescriptor(LibusbContext::EndpointDescripto
 {
     SsEndpointCompanionDescriptor* descriptor{};
     int rc = libusb_get_ss_endpoint_companion_descriptor(mContext, endpointDescriptor, &descriptor);
-    CHECK_ERROR(rc)
+    CHECK_LIBUSB_ERROR(rc)
     return LibusbContext::UniqueSsEndpointCompanionDescriptor{descriptor};
 }
 
@@ -102,7 +102,7 @@ LibusbContext::getUsb20ExtensionDescriptor(LibusbContext::BosDevCapabilityDescri
 {
     Usb20ExtentionDescriptor* descriptor{};
     int rc = libusb_get_usb_2_0_extension_descriptor(mContext, devCapabilityDescriptor, &descriptor);
-    CHECK_ERROR(rc)
+    CHECK_LIBUSB_ERROR(rc)
     return LibusbContext::UniqueUsb20ExtentionDescriptor{descriptor};
 }
 
@@ -111,7 +111,7 @@ LibusbContext::getSsUsbDeviceCapabilityDescriptor(LibusbContext::BosDevCapabilit
 {
     SsUsbDeviceCapabilityDescriptor* descriptor{};
     int rc = libusb_get_ss_usb_device_capability_descriptor(mContext, devCapabilityDescriptor, &descriptor);
-    CHECK_ERROR(rc);
+    CHECK_LIBUSB_ERROR(rc);
     return LibusbContext::UniqueSsUsbDeviceCapabilityDescriptor{descriptor};
 }
 
@@ -120,7 +120,7 @@ LibusbContext::getContainerIdDescriptor(LibusbContext::BosDevCapabilityDescripto
 {
     ContainerIdDescriptor* descriptor{};
     int rc = libusb_get_container_id_descriptor(mContext, devCapabilityDescriptor, &descriptor);
-    CHECK_ERROR(rc)
+    CHECK_LIBUSB_ERROR(rc)
     return LibusbContext::UniqueContainerIdDescriptor{descriptor};
 }
 

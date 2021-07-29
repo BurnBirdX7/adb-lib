@@ -11,10 +11,12 @@ public:
         OK = 0,
         CANCELLED,
         TRANSPORT_ERROR,
+        TRANSPORT_DISCONNECTED,
         UNDERLYING_ERROR
     };
 
     using Listener = std::function<void(const APacket*, ErrorCode errorCode)>;
+    using UniquePointer = std::unique_ptr<Transport>;
 
 public:
     virtual void send(APacket&& packet) = 0;

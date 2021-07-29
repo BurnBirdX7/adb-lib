@@ -81,34 +81,34 @@ LibusbDevice LibusbDevice::referenceDevice() const
 LibusbDeviceHandle LibusbDevice::open() const
 {
     libusb_device_handle *handle{};
-    CHECK_ERROR(libusb_open(mDevice, &handle));
+    CHECK_LIBUSB_ERROR(libusb_open(mDevice, &handle));
     return LibusbDeviceHandle(handle);
 }
 
 LibusbDevice::UniqueDeviceDescriptor LibusbDevice::getDescriptor() const
 {
     auto *descriptor = new DeviceDescriptor;
-    CHECK_ERROR(libusb_get_device_descriptor(mDevice, descriptor));
+    CHECK_LIBUSB_ERROR(libusb_get_device_descriptor(mDevice, descriptor));
     return LibusbDevice::UniqueDeviceDescriptor{descriptor};
 }
 
 LibusbDevice::UniqueConfigDescriptor LibusbDevice::getActiveConfigDescriptor() const
 {
     ConfigDescriptor *descriptor{};
-    CHECK_ERROR(libusb_get_active_config_descriptor(mDevice, &descriptor));
+    CHECK_LIBUSB_ERROR(libusb_get_active_config_descriptor(mDevice, &descriptor));
     return LibusbDevice::UniqueConfigDescriptor(descriptor);
 }
 
 LibusbDevice::UniqueConfigDescriptor LibusbDevice::getConfigDescriptor(uint8_t config_index) const
 {
     ConfigDescriptor *descriptor{};
-    CHECK_ERROR(libusb_get_config_descriptor(mDevice, config_index, &descriptor));
+    CHECK_LIBUSB_ERROR(libusb_get_config_descriptor(mDevice, config_index, &descriptor));
     return LibusbDevice::UniqueConfigDescriptor(descriptor);
 }
 
 LibusbDevice::UniqueConfigDescriptor LibusbDevice::getConfigDescriptorByValue(uint8_t bConfigurationValue) const
 {
     ConfigDescriptor* descriptor{};
-    CHECK_ERROR(libusb_get_config_descriptor_by_value(mDevice, bConfigurationValue, &descriptor));
+    CHECK_LIBUSB_ERROR(libusb_get_config_descriptor_by_value(mDevice, bConfigurationValue, &descriptor));
     return LibusbDevice::UniqueConfigDescriptor(descriptor);
 }

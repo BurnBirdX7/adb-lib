@@ -7,7 +7,9 @@ set(ADBLIB_SRC
         src/APacket.cpp
         src/UsbTransport.cpp
         src/Transport.cpp
-        src/APayload.cpp)
+        src/APayload.cpp
+        src/AdbBase.cpp
+        src/Features.cpp)
 
 add_library(adblib ${ADBLIB_SRC})
 add_subdirectory(obj-libusb)

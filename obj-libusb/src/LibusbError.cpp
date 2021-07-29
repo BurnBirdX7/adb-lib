@@ -12,3 +12,17 @@ LibusbError::LibusbError(ssize_t err)
 libusb_error LibusbError::getCode() const {
     return mError;
 }
+
+ObjLibusbError::ObjLibusbError(ObjLibusbError::ErrorCode code)
+    : std::runtime_error(OBJLIBUSB_ERROR_CODES[code])
+    , mCode(code)
+{}
+
+const char* ObjLibusbError::OBJLIBUSB_ERROR_CODES[] = {
+        "OK", "Incorrect mutex lock"
+};
+
+ObjLibusbError::ErrorCode ObjLibusbError::getCode() const
+{
+    return mCode;
+}

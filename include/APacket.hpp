@@ -23,6 +23,8 @@ struct AMessage {
         return {.command = command,
                 .arg0 = arg0,
                 .arg1 = arg1,
+                .dataLength = 0,
+                .dataCheck = 0,
                 .magic = command ^ ALL_ONES_UL};
     }
 };

@@ -5,7 +5,7 @@
 #include "Libusb.hpp"
 
 
-#define CHECK_ERROR(rc)     \
+#define CHECK_LIBUSB_ERROR(rc)     \
 if ((rc) < 0) {             \
     throw LibusbError(rc);  \
 }
@@ -25,6 +25,28 @@ public:
 private:
     libusb_error mError;
 };
+
+
+class ObjLibusbError
+        : public std::runtime_error
+{
+public:
+    enum ErrorCode {
+        OK = 0,
+        INCORRECT_MUTEX_LOCK = 1
+    };
+
+public:
+    explicit ObjLibusbError(ErrorCode code);
+    static const char* OBJLIBUSB_ERROR_CODES[];
+    [[nodiscard]] ErrorCode getCode() const;
+
+private:
+    ErrorCode mCode;
+
+};
+
+
 
 
 #endif //OBJ_LIBUSB__LIBUSBERROR_HPP

@@ -10,7 +10,7 @@ LibusbDeviceList::LibusbDeviceList(libusb_context *context)
         , mSize(-1)
 {
     ssize_t rc = libusb_get_device_list(context, &mDeviceList);
-    CHECK_ERROR(rc)
+    CHECK_LIBUSB_ERROR(rc)
     mSize = static_cast<size_t>(rc);
 }
 
