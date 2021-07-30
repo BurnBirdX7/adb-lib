@@ -35,6 +35,11 @@ void AdbBase::setMaxData(uint32_t maxData)
     mTransport->setMaxPayloadSize(maxData);
 }
 
+void AdbBase::setConnectionState(AdbBase::ConnectionState state)
+{
+    mConnectionState = state;
+}
+
 uint32_t AdbBase::getVersion() const
 {
     return mVersion;
@@ -48,6 +53,35 @@ const std::string& AdbBase::getSystemType() const
 uint32_t AdbBase::getMaxData() const
 {
     return mTransport->getMaxPayloadSize();
+}
+
+uint32_t AdbBase::getConnectionState() const
+{
+    return mConnectionState;
+}
+
+bool AdbBase::checkPacketValidity(const APacket& packet) const
+{
+    const auto& message = packet.getMessage();
+    if (packet.hasPayload()) {
+
+        const auto& payload = packet.getPayload();
+        if (payload.getSize() != message.dataLength)
+            return false;
+
+        if (mVersion < A_VERSION_SKIP_CHECKSUM) {
+            uint32_t checksum = 0;
+            for (const auto& byte : payload)
+                checksum += byte;
+            if (checksum != message.dataCheck)
+                return false;
+        }
+
+    }
+    else if (message.dataCheck != 0 || message.dataLength != 0)
+        return false;
+
+    return true;
 }
 
 void AdbBase::sendConnect(const FeatureSet& featureSet)
@@ -92,6 +126,18 @@ void AdbBase::sendOpen(AdbBase::Arg localStreamId, APayload payload)
 void AdbBase::sendReady(AdbBase::Arg localStreamId, AdbBase::Arg remoteStreamId)
 {
     mTransport->send(APacket(AMessage::make(A_OKAY, localStreamId, remoteStreamId)));
+}
+
+void AdbBase::sendWrite(AdbBase::Arg localStreamId, AdbBase::Arg remoteStreamId, APayload payload)
+{
+    APacket packet(AMessage::make(A_WRTE, localStreamId, remoteStreamId));
+    packet.movePayloadIn(std::move(payload));
+    packet.updateMessageDataLength();
+
+    if (mVersion < A_VERSION_SKIP_CHECKSUM)
+        packet.computeChecksum();
+
+    mTransport->send(std::move(packet));
 }
 
 void AdbBase::sendClose(AdbBase::Arg localStreamId, AdbBase::Arg removeStreamId)

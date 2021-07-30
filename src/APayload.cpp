@@ -75,6 +75,30 @@ void APayload::setDataSize(size_t newSize)
     mDataSize = newSize;
 }
 
+uint8_t *APayload::getBuffer() {
+    return mBuffer;
+}
+
+APayload::iterator APayload::begin()
+{
+    return mBuffer;
+}
+
+APayload::citerator APayload::begin() const
+{
+    return mBuffer;
+}
+
+APayload::iterator APayload::end()
+{
+    return mBuffer + mDataSize;
+}
+
+APayload::citerator APayload::end() const
+{
+    return mBuffer + mDataSize;
+}
+
 APayload& APayload::operator=(APayload&& other) noexcept
 {
     mBuffer = std::exchange(other.mBuffer, nullptr);
@@ -92,8 +116,4 @@ APayload& APayload::operator=(const APayload& other)
     std::copy(other.mBuffer, other.mBuffer + other.mDataSize, mBuffer);
     setDataSize(other.mDataSize);
     return *this;
-}
-
-uint8_t *APayload::getBuffer() {
-    return mBuffer;
 }

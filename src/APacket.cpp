@@ -58,7 +58,7 @@ const APayload& APacket::getPayload() const
     return *mPayload;
 }
 
-bool APacket::hasPayload()
+bool APacket::hasPayload() const
 {
     return mPayload.has_value();
 }

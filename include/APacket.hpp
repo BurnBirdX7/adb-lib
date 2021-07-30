@@ -47,7 +47,7 @@ public:
     [[nodiscard]] const AMessage& getMessage() const;
     APayload& getPayload();
     [[nodiscard]] const APayload& getPayload() const;
-    bool hasPayload();
+    [[nodiscard]] bool hasPayload() const;
 
     APayload movePayloadOut();
     void computeChecksum();

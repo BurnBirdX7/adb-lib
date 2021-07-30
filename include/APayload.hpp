@@ -7,6 +7,10 @@
 
 class APayload {
 public:
+    using iterator = uint8_t*;
+    using citerator = const uint8_t*;
+
+public:
     explicit APayload(size_t bufferSize);
     APayload(APayload&&) noexcept ;
     APayload(const APayload&);
@@ -21,6 +25,12 @@ public:
     void setDataSize(size_t newSize);
 
     uint8_t* getBuffer();
+
+    iterator begin();
+    [[nodiscard]] citerator begin() const;
+    iterator end();
+    [[nodiscard]] citerator end() const;
+
 
     APayload& operator=(APayload&&) noexcept ;
     APayload& operator=(const APayload&);
