@@ -25,8 +25,6 @@ class UsbTransport
         : public Transport
 {
 public:
-
-public:
     UsbTransport(UsbTransport&)       = delete;
     UsbTransport(const UsbTransport&) = delete;
     UsbTransport(UsbTransport&&) noexcept;

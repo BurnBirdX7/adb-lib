@@ -9,7 +9,9 @@ set(ADBLIB_SRC
         src/Transport.cpp
         src/APayload.cpp
         src/AdbBase.cpp
-        src/Features.cpp)
+        src/Features.cpp
+        src/AStream.cpp
+        src/AdbDevice.cpp)
 
 add_library(adblib ${ADBLIB_SRC})
 add_subdirectory(obj-libusb)

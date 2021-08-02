@@ -15,6 +15,7 @@ public:
         UNDERLYING_ERROR
     };
 
+    // TODO: Change listener model, received packets should be moved out of the Transport
     using Listener = std::function<void(const APacket*, ErrorCode errorCode)>;
     using UniquePointer = std::unique_ptr<Transport>;
 

@@ -7,6 +7,10 @@
 
 class AdbBase {
 public:
+    using UniquePointer = std::unique_ptr<AdbBase>;
+    using SharedPointer = std::shared_ptr<AdbBase>;
+    using WeakPointer = SharedPointer::weak_type;
+
     using UniqueTransport = Transport::UniquePointer;
     using Arg = uint32_t;
 
@@ -34,8 +38,8 @@ public:
     };
 
 public:
-    explicit AdbBase(UniqueTransport&& pointer, uint32_t version = A_VERSION);
-    AdbBase(AdbBase&& other) noexcept ;
+    static SharedPointer makeShared(UniqueTransport&& pointer, uint32_t version = A_VERSION);
+    static UniquePointer makeUnique(UniqueTransport&& pointer, uint32_t version = A_VERSION);
 
 public:
     UniqueTransport moveTransportOut();
@@ -52,6 +56,9 @@ public:
 public:
     [[nodiscard]] bool checkPacketValidity(const APacket& packet) const;
 
+
+
+
 public: // send
     void sendConnect(const FeatureSet& featureSet);
     void sendTls(Arg type, Arg version);
@@ -60,6 +67,10 @@ public: // send
     void sendReady(Arg localStreamId, Arg remoteStreamId);
     void sendWrite(Arg localStreamId, Arg remoteStreamId, APayload payload);
     void sendClose(Arg localStreamId, Arg removeStreamId);
+
+protected:
+    explicit AdbBase(UniqueTransport&& pointer, uint32_t version = A_VERSION);
+    AdbBase(AdbBase&& other) noexcept;
 
 protected:
     UniqueTransport mTransport;

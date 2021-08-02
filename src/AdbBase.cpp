@@ -3,9 +3,11 @@
 
 AdbBase::AdbBase(AdbBase::UniqueTransport&& pointer, uint32_t version)
     : mTransport(std::move(pointer))
-    , mVersion(version)
+    , mVersion(0)
     , mSystemType()
-{}
+{
+    setVersion(version);
+}
 
 AdbBase::AdbBase(AdbBase&& other) noexcept
     : mTransport(std::move(other.mTransport))
@@ -143,4 +145,12 @@ void AdbBase::sendWrite(AdbBase::Arg localStreamId, AdbBase::Arg remoteStreamId,
 void AdbBase::sendClose(AdbBase::Arg localStreamId, AdbBase::Arg removeStreamId)
 {
     mTransport->send(APacket(AMessage::make(A_CLSE, localStreamId, removeStreamId)));
+}
+
+AdbBase::SharedPointer AdbBase::makeShared(AdbBase::UniqueTransport &&pointer, uint32_t version) {
+    return SharedPointer(new AdbBase{std::move(pointer), version});
+}
+
+AdbBase::UniquePointer AdbBase::makeUnique(AdbBase::UniqueTransport &&pointer, uint32_t version) {
+    return UniquePointer(new AdbBase{std::move(pointer), version});
 }
