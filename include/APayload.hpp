@@ -3,7 +3,8 @@
 
 #include <cstddef>
 #include <cstdint>
-
+#include <string>
+#include <string_view>
 
 class APayload {
 public:
@@ -25,6 +26,10 @@ public:
     void setDataSize(size_t newSize);
 
     uint8_t* getBuffer();
+    [[nodiscard]] const uint8_t* getBuffer() const;
+
+    [[nodiscard]] std::string toString() const;
+    [[nodiscard]] std::string_view toStringView() const;
 
     iterator begin();
     [[nodiscard]] citerator begin() const;

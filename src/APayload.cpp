@@ -117,3 +117,15 @@ APayload& APayload::operator=(const APayload& other)
     setDataSize(other.mDataSize);
     return *this;
 }
+
+const uint8_t *APayload::getBuffer() const {
+    return mBuffer;
+}
+
+std::string APayload::toString() const {
+    return {reinterpret_cast<char*>(mBuffer), mDataSize};
+}
+
+std::string_view APayload::toStringView() const {
+    return {reinterpret_cast<char*>(mBuffer), mDataSize};
+}

@@ -28,7 +28,6 @@ public:
 private:
     void processConnect(const APacket&);
 
-
     void receiveListener(const APacket& packet);
 
     FeatureSet mFeatureSet;

@@ -69,7 +69,35 @@ bool AdbDevice::isAwaitingConnection() const
 }
 
 void AdbDevice::processConnect(const APacket& packet) {
-    assert(packet.getMessage().command == A_CNXN);
+    assert(packet.getMessage().command == A_CNXN && packet.hasPayload());
 
-    // TODO: Function's Body
+    // TODO: Make split via search and not a string stream
+    auto view = packet.getPayload().toStringView();
+    std::stringstream ss;
+    ss << view;
+
+    std::vector<std::string> tokens;
+    for (std::string part; getline(ss, part, ':'); /* --- */)
+        tokens.push_back(part);
+
+    // TODO: Check vector size
+
+    std::string& type = tokens[0];
+    ConnectionState newState;
+    if(type == "bootloader")
+        newState = BOOTLOADER;
+    else if (type == "device")
+        newState = DEVICE;
+    else if (type == "host")
+        newState = HOST;
+    else if (type == "recovery")
+        newState = RECOVERY;
+    else if (type == "sideload")
+        newState = SIDELOAD;
+    else if (type == "rescue")
+        newState = RESCUE;
+    else
+        newState = ANY; // TODO: Process exception
+
+    setConnectionState(newState);
 }
