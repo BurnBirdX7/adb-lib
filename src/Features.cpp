@@ -1,3 +1,4 @@
+#include <utils.hpp>
 #include "Features.hpp"
 
 const std::string Feature::shell2 = "shell_v2";
@@ -55,4 +56,15 @@ std::string Features::setToString(const FeatureSet& set)
         str += ',' + set[i];
 
     return str;
+}
+
+FeatureSet Features::stringToSet(const std::string_view& view)
+{
+    FeatureSet set;
+    auto tokens = utils::tokenize(view, ",");
+
+    for (const auto& token : tokens)
+        set.emplace_back(token);
+
+    return set;
 }

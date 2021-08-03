@@ -1,24 +1,19 @@
 #include "AdbDevice.hpp"
 
 #include <cassert>
-#include <sstream>
+#include <utils.hpp>
+
 
 AdbDevice::AdbDevice(AdbDevice::UniqueTransport &&transport)
     : AdbBase(std::move(transport), A_VERSION)
 {
-    mTransport->setReceiveListener(
-            [this](const APacket* packet, Transport::ErrorCode code) {
-                // TODO: Process Error
-                if (code == Transport::OK)
-                    this->receiveListener(*packet);
-            }
-    );
+    setPacketListener([this](const APacket& packet){
+        this->packetListener(packet);
+    });
 
-    mTransport->setSendListener(
-            [this] (const APacket* packet, Transport::ErrorCode code) {
-                // TODO: Process Error
-            }
-    );
+    setErrorListener([this](int errorCode, const APacket* packet, bool incomingPacket) {
+        this->errorListener(errorCode, packet, incomingPacket);
+    });
 }
 
 void AdbDevice::connect() {
@@ -45,15 +40,23 @@ void AdbDevice::setFeatures(FeatureSet featureSet) {
     mFeatureSet = std::move(featureSet);
 }
 
-void AdbDevice::receiveListener(const APacket &packet) {
-    switch(packet.getMessage().command) {
-        case A_CNXN:
-            processConnect(packet);
-            break;
+void AdbDevice::packetListener(const APacket &packet) {
+    auto command = packet.getMessage().command;
 
-        // TODO: Other cases
-    }
-
+    if (command == A_CNXN)
+        processConnect(packet);
+    else if (command == A_OPEN)
+        processOpen(packet);
+    else if (command == A_OKAY)
+        processReady(packet);
+    else if (command == A_CLSE)
+        processClose(packet);
+    else if (command == A_WRTE)
+        processWrite(packet);
+    else if (command == A_AUTH)
+        processAuth(packet);
+    else if (command == A_STLS)
+        processTls(packet);
 }
 
 bool AdbDevice::isAwaitingConnection() const
@@ -71,33 +74,88 @@ bool AdbDevice::isAwaitingConnection() const
 void AdbDevice::processConnect(const APacket& packet) {
     assert(packet.getMessage().command == A_CNXN && packet.hasPayload());
 
-    // TODO: Make split via search and not a string stream
+    /*
+     * if (isAwaitingConnection())
+     *   should be here
+     *
+     * TODO: Make CNXN processing for a situation when we are not the initiator
+     */
+
+    // Version and
+    setVersion(std::min(packet.getMessage().arg0, getVersion()));
+    setMaxData(std::min(packet.getMessage().arg1, getMaxData()));
+
     auto view = packet.getPayload().toStringView();
-    std::stringstream ss;
-    ss << view;
+    auto tokens = utils::tokenize(view, ":");
 
-    std::vector<std::string> tokens;
-    for (std::string part; getline(ss, part, ':'); /* --- */)
-        tokens.push_back(part);
+    if (!setSystemType(tokens[0])) {
+        setConnectionState(OFFLINE);
+        return;
+    }
 
-    // TODO: Check vector size
+    mSerial = std::string(tokens[1]);
 
-    std::string& type = tokens[0];
-    ConnectionState newState;
-    if(type == "bootloader")
-        newState = BOOTLOADER;
-    else if (type == "device")
-        newState = DEVICE;
-    else if (type == "host")
-        newState = HOST;
-    else if (type == "recovery")
-        newState = RECOVERY;
-    else if (type == "sideload")
-        newState = SIDELOAD;
-    else if (type == "rescue")
-        newState = RESCUE;
-    else
-        newState = ANY; // TODO: Process exception
+    if (tokens.size() > 2) {
+        auto properties = utils::tokenize(tokens[2], ";");
 
-    setConnectionState(newState);
+        for(const auto property : properties) {
+            auto key_value = utils::tokenize(property, "=");
+            const auto& key = key_value[0];
+            const auto& value = key_value[1];
+
+            if (key == "features")
+                mFeatureSet = Features::stringToSet(value);
+            else if (key == "ro.product.name")
+                mProduct = value;
+            else if (key == "ro.product.model")
+                mModel = value;
+            else if (key == "ro.product.device")
+                mDevice = value;
+
+            // TODO: Report unknown property (?)
+        }
+    }
+
+}
+
+// TODO: Process Packets
+void AdbDevice::processOpen(const APacket&)
+{
+
+}
+
+void AdbDevice::processReady(const APacket&)
+{
+
+}
+
+void AdbDevice::processClose(const APacket&)
+{
+
+}
+
+void AdbDevice::processWrite(const APacket&)
+{
+
+}
+
+void AdbDevice::processAuth(const APacket& packet)
+{
+
+}
+
+void AdbDevice::processTls(const APacket&)
+{
+
+}
+
+AdbDevice::~AdbDevice()
+{
+    resetPacketListener();
+    resetErrorListener();
+}
+
+void AdbDevice::errorListener(int errorCode, const APacket* packet, bool incomingPacket)
+{
+    // TODO: Process Errors
 }

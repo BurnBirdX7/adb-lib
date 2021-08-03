@@ -16,6 +16,10 @@ LibusbTransfer::LibusbTransfer(int isoPacketsNumber)
 
 LibusbTransfer::~LibusbTransfer()
 {
+    UniqueLock lock(mMutex);
+    mUserCallback = {};
+    if (mState == SUBMITTED)
+        cancel(&lock);
     libusb_free_transfer(mTransfer);
 }
 
@@ -24,20 +28,21 @@ LibusbTransfer::Pointer LibusbTransfer::createTransfer(int isoPacketsNumber)
     return LibusbTransfer::Pointer(new LibusbTransfer(isoPacketsNumber));
 }
 
-void LibusbTransfer::submit()
+void LibusbTransfer::submit(const UniqueLock* lock)
 {
-    UniqueLock lock(mMutex);
+    assert(lock && isLocked(*lock));
     assert(mState == READY);
     mTransfer->user_data = prepareUserData();
     CHECK_LIBUSB_ERROR(libusb_submit_transfer(mTransfer))
     mState = SUBMITTED;
 }
 
-void LibusbTransfer::cancel()
+void LibusbTransfer::cancel(const UniqueLock* lock)
 {
-    UniqueLock lock(mMutex);
+    assert(lock && isLocked(*lock));
     assert(mState == SUBMITTED);
     CHECK_LIBUSB_ERROR(libusb_cancel_transfer(mTransfer))
+    mState = CANCELLING;
 }
 
 LibusbTransfer::SharedLock LibusbTransfer::getSharedLock() const
@@ -54,70 +59,70 @@ LibusbTransfer::UniqueLock LibusbTransfer::getUniqueLock()
 
 uint8_t LibusbTransfer::getFlags(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mTransfer->flags;
 }
 
 uint8_t LibusbTransfer::getEndpoint(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mTransfer->endpoint;
 }
 
 uint8_t LibusbTransfer::getType(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mTransfer->type;
 }
 
 uint LibusbTransfer::getTimeout(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mTransfer->timeout;
 }
 
 uint8_t LibusbTransfer::getStatus(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState == IN_CALLBACK);
     return mTransfer->status;
 }
 
 int LibusbTransfer::getLength(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mTransfer->length;
 }
 
 int LibusbTransfer::getActualLength(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState == IN_CALLBACK);
     return mTransfer->actual_length;
 }
 
 uint8_t* LibusbTransfer::getBuffer(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mTransfer->buffer;
 }
 
 void* LibusbTransfer::getUserData(const VariantLock& lock) const
 {
-    auto optLock = processVariantLock(lock);
+    assert(isVariantLocked(lock));
     assert(mState >= READY);
     return mUserData;
 }
 
 void LibusbTransfer::setNewBuffer(unsigned char* buffer, uint8_t length, const UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     assert(mState <= READY || mState == IN_CALLBACK);
     mTransfer->buffer = buffer;
     mTransfer->length = length;
@@ -125,20 +130,20 @@ void LibusbTransfer::setNewBuffer(unsigned char* buffer, uint8_t length, const U
 
 void LibusbTransfer::setNewUserData(void* userData, const UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     assert(mState <= READY || mState == IN_CALLBACK);
     mUserData = userData;
 }
 
 void LibusbTransfer::setNewCallback(LibusbTransfer::TransferCallback callback, const LibusbTransfer::UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     mUserCallback = std::move(callback);
 }
 
 void LibusbTransfer::deleteCallback(const LibusbTransfer::UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     mUserCallback = {};
 }
 
@@ -150,7 +155,7 @@ LibusbTransfer::State LibusbTransfer::getState() const
 
 void LibusbTransfer::reset(const UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     assert(mState == READY);
     const auto isoPackets = mTransfer->num_iso_packets;
     libusb_free_transfer(mTransfer);
@@ -161,7 +166,7 @@ void LibusbTransfer::reset(const UniqueLock* lock)
 
 void LibusbTransfer::enableFreeBufferFlag(bool enable, const UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     assert(mState == READY);
     constexpr auto flag = Flag::FREE_BUFFER;
     if (enable)
@@ -172,7 +177,7 @@ void LibusbTransfer::enableFreeBufferFlag(bool enable, const UniqueLock* lock)
 
 void LibusbTransfer::enableAddZeroPacketFlag(bool enable, const UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     assert(mState == READY);
     constexpr auto flag = Flag::ADD_ZERO_PACKET;
     if (enable)
@@ -184,7 +189,7 @@ void LibusbTransfer::enableAddZeroPacketFlag(bool enable, const UniqueLock* lock
 void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device, uint8_t endpoint, unsigned char *buffer, int length,
                               TransferCallback callback, void *userData, unsigned int timeout, const UniqueLock* lock)
 {
-    auto optLock = processUniqueLock(lock);
+    assert(lock && isLocked(*lock));
     assert(mState == EMPTY && "Only empty transfer can be filled, call reset() if you want to refill transfer");
 
     mUserCallback = std::move(callback);
@@ -204,11 +209,13 @@ void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device, uint8_t endpoint
 void LibusbTransfer::sCallbackWrapper(libusb_transfer* libusbTransfer)
 {
     // Check if call is correct
-    assert(libusbTransfer != nullptr);
-    if (libusbTransfer->user_data == nullptr)
+    assert(libusbTransfer && libusbTransfer->user_data);
+
+    auto weakTransfer = *getWeakTransferFromUserData(libusbTransfer->user_data);
+    auto transfer = weakTransfer.lock();
+    if (!transfer)  // if transfer is expired
         return;
 
-    auto transfer = *getTransferFromUserData(libusbTransfer->user_data);
     auto lock = transfer->getUniqueLock();
 
     const auto& callback = transfer->mUserCallback;
@@ -223,39 +230,17 @@ void LibusbTransfer::sCallbackWrapper(libusb_transfer* libusbTransfer)
 
 void* LibusbTransfer::prepareUserData()
 {
-    return new Pointer(this->shared_from_this());
+    return new WeakPointer(this->weak_from_this());
 }
 
 void LibusbTransfer::freeUserData(void* userData)
 {
-    delete static_cast<Pointer*>(userData);
+    delete static_cast<WeakPointer*>(userData);
 }
 
-LibusbTransfer::Pointer* LibusbTransfer::getTransferFromUserData(void* userData)
+LibusbTransfer::WeakPointer* LibusbTransfer::getWeakTransferFromUserData(void* userData)
 {
-    return static_cast<Pointer*>(userData);
-}
-
-std::optional<LibusbTransfer::UniqueLock> LibusbTransfer::processUniqueLock(const LibusbTransfer::UniqueLock* lock)
-{
-    if (lock == nullptr)
-        return UniqueLock(mMutex);
-
-    if (isLocked(*lock))
-        throw ObjLibusbError(ObjLibusbError::INCORRECT_MUTEX_LOCK);
-
-    return std::nullopt;
-}
-
-std::optional<LibusbTransfer::SharedLock> LibusbTransfer::processVariantLock(const VariantLock& lock) const
-{
-    if (std::holds_alternative<nullptr_t>(lock))
-        return SharedLock(mMutex);
-
-    if (!isVariantLocked(lock))
-        throw ObjLibusbError(ObjLibusbError::INCORRECT_MUTEX_LOCK);
-
-    return std::nullopt;
+    return static_cast<WeakPointer*>(userData);
 }
 
 bool LibusbTransfer::isVariantLocked(const LibusbTransfer::VariantLock& lockPtr) const

@@ -39,6 +39,7 @@ public:
 
     static const FeatureSet& getFullSet();
     static std::string setToString(const FeatureSet& set);
+    static FeatureSet stringToSet(const std::string_view& view);
 
 };
 

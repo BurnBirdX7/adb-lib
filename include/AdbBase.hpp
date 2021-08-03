@@ -9,7 +9,10 @@ class AdbBase {
 public:
     using UniquePointer = std::unique_ptr<AdbBase>;
     using SharedPointer = std::shared_ptr<AdbBase>;
-    using WeakPointer = SharedPointer::weak_type;
+    using WeakPointer   = SharedPointer::weak_type;
+
+    using PacketListener = std::function<void (const APacket& /*packet*/)>;
+    using ErrorListener  = std::function<void(int /*errorCode*/, const APacket*, bool /*incoming package*/)>;
 
     using UniqueTransport = Transport::UniquePointer;
     using Arg = uint32_t;
@@ -29,6 +32,7 @@ public:
         NO_PERMISSION,  // Insufficient permissions to connect the device
         OFFLINE,        // ???
 
+        // Connected:
         BOOTLOADER,
         DEVICE,
         HOST,
@@ -37,14 +41,17 @@ public:
         RESCUE
     };
 
-public:
+public: // Manage
+    virtual ~AdbBase();
+
     static SharedPointer makeShared(UniqueTransport&& pointer, uint32_t version = A_VERSION);
     static UniquePointer makeUnique(UniqueTransport&& pointer, uint32_t version = A_VERSION);
 
+    UniqueTransport moveTransportOut(); // Invalidates AdbBase object
+
 public:
-    UniqueTransport moveTransportOut();
     void setVersion(uint32_t version);
-    void setSystemType(const std::string& systemType);
+    bool setSystemType(const std::string_view& systemType);
     void setMaxData(uint32_t maxData); // overrides default version's maxdata value
     void setConnectionState(ConnectionState state);
 
@@ -53,13 +60,10 @@ public:
     [[nodiscard]] uint32_t getMaxData() const;
     [[nodiscard]] uint32_t getConnectionState() const;
 
-public:
+public: // Util
     [[nodiscard]] bool checkPacketValidity(const APacket& packet) const;
 
-
-
-
-public: // send
+public: // Send
     void sendConnect(const FeatureSet& featureSet);
     void sendTls(Arg type, Arg version);
     void sendAuth(AuthType type, APayload payload);
@@ -68,17 +72,28 @@ public: // send
     void sendWrite(Arg localStreamId, Arg remoteStreamId, APayload payload);
     void sendClose(Arg localStreamId, Arg removeStreamId);
 
+public: // Incoming packets
+    void setPacketListener(PacketListener);
+    void resetPacketListener();
+
+public: // Errors
+    void setErrorListener(ErrorListener);
+    void resetErrorListener();
+
 protected:
     explicit AdbBase(UniqueTransport&& pointer, uint32_t version = A_VERSION);
     AdbBase(AdbBase&& other) noexcept;
 
-protected:
-    UniqueTransport mTransport;
+    void listenersSetup();
 
 private:
     uint32_t mVersion;
     std::string mSystemType;
     ConnectionState mConnectionState;
+    UniqueTransport mTransport;
+
+    PacketListener mPacketListener;
+    ErrorListener mErrorListener;
 
 };
 

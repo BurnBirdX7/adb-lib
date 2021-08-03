@@ -1,22 +1,10 @@
 #include "AdbBase.hpp"
 
 
-AdbBase::AdbBase(AdbBase::UniqueTransport&& pointer, uint32_t version)
-    : mTransport(std::move(pointer))
-    , mVersion(0)
-    , mSystemType()
-{
-    setVersion(version);
-}
-
-AdbBase::AdbBase(AdbBase&& other) noexcept
-    : mTransport(std::move(other.mTransport))
-    , mVersion(other.mVersion)
-    , mSystemType(std::move(other.mSystemType))
-{}
 
 AdbBase::UniqueTransport AdbBase::moveTransportOut()
 {
+    setConnectionState(ConnectionState::ANY);
     return std::move(mTransport);
 }
 
@@ -27,9 +15,27 @@ void AdbBase::setVersion(uint32_t version)
         mTransport->setMaxPayloadSize(MAX_PAYLOAD_V1);
 }
 
-void AdbBase::setSystemType(const std::string& systemType)
+bool AdbBase::setSystemType(const std::string_view& systemType)
 {
+    ConnectionState newState;
+    if(systemType == "bootloader")
+        newState = BOOTLOADER;
+    else if (systemType == "device")
+        newState = DEVICE;
+    else if (systemType == "host")
+        newState = HOST;
+    else if (systemType == "recovery")
+        newState = RECOVERY;
+    else if (systemType == "sideload")
+        newState = SIDELOAD;
+    else if (systemType == "rescue")
+        newState = RESCUE;
+    else
+        return false;
+
+    setConnectionState(newState);
     mSystemType = systemType;
+    return true;
 }
 
 void AdbBase::setMaxData(uint32_t maxData)
@@ -147,10 +153,78 @@ void AdbBase::sendClose(AdbBase::Arg localStreamId, AdbBase::Arg removeStreamId)
     mTransport->send(APacket(AMessage::make(A_CLSE, localStreamId, removeStreamId)));
 }
 
+AdbBase::~AdbBase()
+{
+    mTransport->resetReceiveListener();
+    mTransport->resetSendListener();
+}
+
 AdbBase::SharedPointer AdbBase::makeShared(AdbBase::UniqueTransport &&pointer, uint32_t version) {
     return SharedPointer(new AdbBase{std::move(pointer), version});
 }
 
 AdbBase::UniquePointer AdbBase::makeUnique(AdbBase::UniqueTransport &&pointer, uint32_t version) {
     return UniquePointer(new AdbBase{std::move(pointer), version});
+}
+
+void AdbBase::setPacketListener(AdbBase::PacketListener listener)
+{
+    mPacketListener = std::move(listener);
+}
+
+void AdbBase::resetPacketListener()
+{
+    mPacketListener = {};
+}
+
+void AdbBase::setErrorListener(AdbBase::ErrorListener listener)
+{
+    mErrorListener = std::move(listener);
+}
+
+void AdbBase::resetErrorListener()
+{
+    mErrorListener = {};
+}
+
+AdbBase::AdbBase(AdbBase::UniqueTransport&& pointer, uint32_t version)
+        : mTransport(std::move(pointer))
+        , mVersion(0)
+        , mSystemType()
+        , mConnectionState(OFFLINE)
+{
+    setVersion(version);
+    listenersSetup();
+}
+
+AdbBase::AdbBase(AdbBase&& other) noexcept
+        : mTransport(std::move(other.mTransport))
+        , mVersion(other.mVersion)
+        , mSystemType(std::move(other.mSystemType))
+        , mConnectionState(OFFLINE)
+{
+    listenersSetup();
+}
+
+void AdbBase::listenersSetup()
+{
+    mTransport->setReceiveListener(
+            [this](const APacket* packet, Transport::ErrorCode errorCode) {
+                if (errorCode == Transport::OK) {
+                    if (mPacketListener)
+                        mPacketListener(*packet);
+                    return;
+                }
+
+                if(mErrorListener)
+                    mErrorListener(errorCode, packet, false);
+            }
+    );
+
+    mTransport->setSendListener(
+            [this](const APacket* packet, Transport::ErrorCode errorCode) {
+                if (errorCode != Transport::OK && mErrorListener)
+                    mErrorListener(errorCode, packet, true);
+            }
+    );
 }
