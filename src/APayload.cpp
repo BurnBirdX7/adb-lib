@@ -11,6 +11,19 @@ APayload::APayload(size_t bufferSize)
     assert(mBuffer != nullptr && "Couldn't allocate memory for APayload");
 }
 
+APayload::APayload(const std::string_view& view)
+    : APayload(view, view.length())
+{}
+
+APayload::APayload(const std::string_view &view, size_t bufferSize)
+    : APayload(bufferSize)
+{
+    assert(bufferSize >= view.length());
+    std::copy(view.begin(), view.end(), mBuffer);
+    mDataSize = view.length();
+}
+
+
 APayload::APayload(APayload&& other) noexcept
     : mBuffer(other.mBuffer)
     , mBufferSize(other.mBufferSize)

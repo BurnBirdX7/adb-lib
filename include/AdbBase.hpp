@@ -72,6 +72,10 @@ public: // Send
     void sendWrite(Arg localStreamId, Arg remoteStreamId, APayload payload);
     void sendClose(Arg localStreamId, Arg removeStreamId);
 
+    static APayload makeConnectionString(const std::string_view& systemType,
+                                         const std::string_view& serial,
+                                         const FeatureSet& featureSet);
+
 public: // Incoming packets
     void setPacketListener(PacketListener);
     void resetPacketListener();

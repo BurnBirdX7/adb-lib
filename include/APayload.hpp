@@ -13,6 +13,8 @@ public:
 
 public:
     explicit APayload(size_t bufferSize);
+    explicit APayload(const std::string_view& view);
+    explicit APayload(const std::string_view& view, size_t bufferSize);
     APayload(APayload&&) noexcept ;
     APayload(const APayload&);
     ~APayload();

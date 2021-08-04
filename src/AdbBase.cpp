@@ -228,3 +228,26 @@ void AdbBase::listenersSetup()
             }
     );
 }
+
+APayload AdbBase::makeConnectionString(const std::string_view& systemType,
+                                       const std::string_view& serial,
+                                       const FeatureSet& featureSet)
+{
+    auto featureString = "features=" + Features::setToString(featureSet);
+    size_t len = systemType.length() + serial.length() + featureString.length() + 2;
+    APayload payload(len);
+    size_t payloadI = 0;
+
+    for (size_t i = 0; i < systemType.size(); ++i, ++payloadI)
+        payload[payloadI] = systemType[i];
+    payload[++payloadI] = ':';
+
+    for (size_t i = 0; i < serial.size(); ++i, ++payloadI)
+        payload[payloadI] = serial[i];
+    payload[++payloadI] = ':';
+
+    for (size_t i = 0; i < featureString.size(); ++i, ++payloadI)
+        payload[payloadI] = featureString[i];
+
+    return payload;
+}
