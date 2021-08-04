@@ -16,25 +16,19 @@ LibusbTransfer::LibusbTransfer(int isoPacketsNumber)
 
 LibusbTransfer::~LibusbTransfer()
 {
-    UniqueLock lock(mMutex);
-    mUserCallback = {};
-    if (mState == SUBMITTED)
-        cancel(&lock);
     libusb_free_transfer(mTransfer);
 }
 
-LibusbTransfer::Pointer LibusbTransfer::createTransfer(int isoPacketsNumber)
+LibusbTransfer::SharedPointer LibusbTransfer::createTransfer(int isoPacketsNumber)
 {
-    return LibusbTransfer::Pointer(new LibusbTransfer(isoPacketsNumber));
+    return LibusbTransfer::SharedPointer(new LibusbTransfer(isoPacketsNumber));
 }
 
 void LibusbTransfer::submit(const UniqueLock* lock)
 {
     assert(lock && isLocked(*lock));
     assert(mState == READY);
-    mTransfer->user_data = prepareUserData();
-    CHECK_LIBUSB_ERROR(libusb_submit_transfer(mTransfer))
-    mState = SUBMITTED;
+    staticSubmitTransfer(*this);
 }
 
 void LibusbTransfer::cancel(const UniqueLock* lock)
@@ -42,7 +36,6 @@ void LibusbTransfer::cancel(const UniqueLock* lock)
     assert(lock && isLocked(*lock));
     assert(mState == SUBMITTED);
     CHECK_LIBUSB_ERROR(libusb_cancel_transfer(mTransfer))
-    mState = CANCELLING;
 }
 
 LibusbTransfer::SharedLock LibusbTransfer::getSharedLock() const
@@ -186,8 +179,14 @@ void LibusbTransfer::enableAddZeroPacketFlag(bool enable, const UniqueLock* lock
         mTransfer->flags &= ~flag;
 }
 
-void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device, uint8_t endpoint, unsigned char *buffer, int length,
-                              TransferCallback callback, void *userData, unsigned int timeout, const UniqueLock* lock)
+void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device,
+                              uint8_t endpoint,
+                              unsigned char *buffer,
+                              int length,
+                              TransferCallback callback,
+                              void *userData,
+                              unsigned int timeout,
+                              const UniqueLock* lock)
 {
     assert(lock && isLocked(*lock));
     assert(mState == EMPTY && "Only empty transfer can be filled, call reset() if you want to refill transfer");
@@ -199,48 +198,39 @@ void LibusbTransfer::fillBulk(const LibusbDeviceHandle &device, uint8_t endpoint
                               endpoint,
                               buffer,
                               length,
-                              LibusbTransfer::sCallbackWrapper,
+                              LibusbTransfer::staticCallbackWrapper,
                               nullptr,
                               timeout);
 
     mState = READY;
 }
 
-void LibusbTransfer::sCallbackWrapper(libusb_transfer* libusbTransfer)
+void LibusbTransfer::staticCallbackWrapper(libusb_transfer* libusbTransfer)
 {
-    // Check if call is correct
     assert(libusbTransfer && libusbTransfer->user_data);
 
-    auto weakTransfer = *getWeakTransferFromUserData(libusbTransfer->user_data);
-    auto transfer = weakTransfer.lock();
-    if (!transfer)  // if transfer is expired
-        return;
+    // Acquire shared pointer
+    auto* shared = static_cast<SharedPointer*>(libusbTransfer->user_data);
+    auto& transfer = *shared;
 
     auto lock = transfer->getUniqueLock();
+    transfer->callbackWrapper(&lock);
 
-    const auto& callback = transfer->mUserCallback;
-    if (callback) { // if callback is set
-        transfer->mState = IN_CALLBACK;
-        callback(transfer, lock);
-    }
-
-    freeUserData(libusbTransfer->user_data);
+    // Destroy shared pointer
+    transfer->mTransfer->user_data = nullptr;
     transfer->mState = READY;
+    delete shared;
 }
 
-void* LibusbTransfer::prepareUserData()
+void LibusbTransfer::staticSubmitTransfer(LibusbTransfer& transfer)
 {
-    return new WeakPointer(this->weak_from_this());
-}
+    // This function constructs shared pointer from *this* in dynamic memory
+    // This shared pointer has to be destroyed in callback
 
-void LibusbTransfer::freeUserData(void* userData)
-{
-    delete static_cast<WeakPointer*>(userData);
-}
-
-LibusbTransfer::WeakPointer* LibusbTransfer::getWeakTransferFromUserData(void* userData)
-{
-    return static_cast<WeakPointer*>(userData);
+    auto* shared = new SharedPointer{transfer.shared_from_this()};
+    transfer.mTransfer->user_data = shared;
+    CHECK_LIBUSB_ERROR(libusb_submit_transfer(transfer.mTransfer))
+    transfer.mState = SUBMITTED;
 }
 
 bool LibusbTransfer::isVariantLocked(const LibusbTransfer::VariantLock& lockPtr) const
@@ -252,4 +242,11 @@ bool LibusbTransfer::isVariantLocked(const LibusbTransfer::VariantLock& lockPtr)
         return isLocked(*std::get<const SharedLock*>(lockPtr));
 
     return false;
+}
+
+void LibusbTransfer::callbackWrapper(const UniqueLock* lock) {
+    if (mUserCallback) { // if callback is set
+        mState = IN_CALLBACK;
+        mUserCallback(shared_from_this(), *lock);
+    }
 }

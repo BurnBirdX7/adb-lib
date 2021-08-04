@@ -19,12 +19,11 @@ public:
     using UniqueLock = std::unique_lock<std::shared_mutex>;
     using VariantLock = std::variant<const SharedLock*, const UniqueLock*>;
 
-    using Pointer = std::shared_ptr<LibusbTransfer>;
-    using WeakPointer = Pointer::weak_type;
-    using TransferCallback = std::function<void(const Pointer& transfer, const UniqueLock& lock)>;
+    using SharedPointer = std::shared_ptr<LibusbTransfer>;
+    using WeakPointer = SharedPointer::weak_type;
+    using TransferCallback = std::function<void(const SharedPointer& transfer, const UniqueLock& lock)>;
 
     enum State : int {
-        CANCELLING      = -1,
         EMPTY           =  0,
         READY           =  1,
         SUBMITTED       =  2,
@@ -61,7 +60,7 @@ public:
     LibusbTransfer(LibusbTransfer&&) = delete;
     ~LibusbTransfer();
 
-    static Pointer createTransfer(int isoPacketsNumber = 0);
+    static SharedPointer createTransfer(int isoPacketsNumber = 0);
 
     // Control
     void submit(const UniqueLock* lock); // READY-state only
@@ -71,7 +70,7 @@ public:
     SharedLock getSharedLock() const;
     UniqueLock getUniqueLock();
 
-    // You can pass shared or unique lock to these functions //
+    // You need to pass shared or unique lock to these functions //
     uint8_t getFlags    (const VariantLock& lock) const;
     uint8_t getEndpoint (const VariantLock& lock) const;
     uint8_t getType     (const VariantLock& lock) const;
@@ -87,7 +86,7 @@ public:
     void setNewCallback (TransferCallback callback,             const UniqueLock* lock);
     void deleteCallback (                                       const UniqueLock* lock);
 
-    // Atomic:
+    // ANY-state:
     State getState() const;
 
     // READY-state only:
@@ -95,7 +94,12 @@ public:
     void enableFreeBufferFlag   (bool enable, const UniqueLock* lock);
     void enableAddZeroPacketFlag(bool enable, const UniqueLock* lock);
 
-    // EMPTY-state only:
+    /* EMPTY-state only:
+     * NOTE:
+     * user must destroy supplied buffer and user data
+     * ONLY after supplied callback is called
+     */
+
     void fillBulk(const LibusbDeviceHandle& device,
                   uint8_t                   endpoint,
                   unsigned char*            buffer,
@@ -105,18 +109,17 @@ public:
                   unsigned int              timeout,
                   const UniqueLock*         lock);
 
-    // ...
-    static void sCallbackWrapper(libusb_transfer* transfer);
+    // Callback's auxiliary
+    static void staticCallbackWrapper(libusb_transfer* libusbTransfer);
+
 
 private:
     // Callback's auxiliary
-    void* prepareUserData();
-    static WeakPointer* getWeakTransferFromUserData(void* userData);
-    static void freeUserData(void* userData);
+    static void staticSubmitTransfer(LibusbTransfer& transfer);
+    void callbackWrapper(const UniqueLock* lock);
 
     // Threads auxiliary
     bool isVariantLocked(const VariantLock& lock) const;
-
     template <class L>
     bool isLocked(const L& lock) const {
         return (lock.mutex() == &mMutex) && lock.owns_lock();

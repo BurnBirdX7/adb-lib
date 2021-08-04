@@ -205,7 +205,8 @@ void UsbTransport::receive()
     mReceiveTransferPack.messageTransfer->submit(&messageLock);
 }
 
-void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer, const LibusbTransfer::UniqueLock& headLock)
+void UsbTransport::sSendHeadCallback(const LibusbTransfer::SharedPointer& headTransfer,
+                                     const LibusbTransfer::UniqueLock& headLock)
 {
     // GET ESSENTIAL DATA:
     auto callbackData = static_cast<CallbackData*>(headTransfer->getUserData(&headLock));
@@ -223,16 +224,18 @@ void UsbTransport::sSendHeadCallback(const LibusbTransfer::Pointer& headTransfer
     auto& transferPack = idPackPair->second;
     transferPack.errorCode = transferStatusToErrorCode(headTransfer->getStatus(&headLock));
 
-    if (transferPack.payloadTransfer == nullptr)    // if there's no payload, we finish transferPack
+    if (transferPack.payloadTransfer == nullptr)    // if there's no payload, we finish the transfer
         transport->finishSendTransfer(callbackData, idPackPair);
-    else if (transferPack.errorCode != OK) {        // if there's a payload and head transferPack failed
+    else if (transferPack.errorCode != OK) {        // if the head transfer failed and there's a payload
         auto payloadLock = transferPack.payloadTransfer->getUniqueLock();
         transferPack.payloadTransfer->cancel(&payloadLock);
     }
-    // else // if there's a payload and transferPack is complete
+    // else
+    // (there's a payload and transferPack is complete) we just let the payload transfer to complete
 }
 
-void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& payloadTransfer, const LibusbTransfer::UniqueLock& payloadLock)
+void UsbTransport::sSendPayloadCallback(const LibusbTransfer::SharedPointer& payloadTransfer,
+                                        const LibusbTransfer::UniqueLock& payloadLock)
 {
     auto callbackData = static_cast<CallbackData*>(payloadTransfer->getUserData(&payloadLock));
     auto* transport = callbackData->transport;
@@ -253,7 +256,7 @@ void UsbTransport::sSendPayloadCallback(const LibusbTransfer::Pointer& payloadTr
     transport->finishSendTransfer(callbackData, idPackPair);
 }
 
-void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTransfer, const LibusbTransfer::UniqueLock& headLock)
+void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::SharedPointer& headTransfer, const LibusbTransfer::UniqueLock& headLock)
 {
     // GET ESSENTIAL DATA:
     auto* transport = static_cast<UsbTransport*>(headTransfer->getUserData(&headLock));
@@ -272,7 +275,7 @@ void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::Pointer& headTrans
 
 }
 
-void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::Pointer& payloadTransfer, const LibusbTransfer::UniqueLock& payloadLock)
+void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::SharedPointer& payloadTransfer, const LibusbTransfer::UniqueLock& payloadLock)
 {
     // GET ESSENTIAL DATA:
     auto* transport = static_cast<UsbTransport*>(payloadTransfer->getUserData(&payloadLock));
@@ -326,7 +329,7 @@ void UsbTransport::prepareToReceive() {
     auto payloadBuffer = mReceiveTransferPack.packet.getPayload().getBuffer();
     auto payloadBufferSize = mReceiveTransferPack.packet.getPayload().getBufferSize();
     mReceiveTransferPack.payloadTransfer = LibusbTransfer::createTransfer();
-    auto payloadLock = mReceiveTransferPack.messageTransfer->getUniqueLock();
+    auto payloadLock = mReceiveTransferPack.payloadTransfer->getUniqueLock();
     mReceiveTransferPack.payloadTransfer->fillBulk(mHandle,
                                                    mInterfaceData.readEndpointAddress,
                                                    payloadBuffer,
@@ -339,24 +342,16 @@ void UsbTransport::prepareToReceive() {
 
 }
 
-// TODO: Check for recursive mutex lock
 void UsbTransport::finishSendTransfer(UsbTransport::CallbackData* callbackData,
                                       UsbTransport::TransfersContainer::iterator mapIterator)
 {
     delete callbackData;
-
-    const APacket* packet;
-    ErrorCode ec;
-    if (mapIterator == mSendTransfers.end()) {
-        packet = nullptr;
-        ec = TRANSPORT_ERROR;
-    }
-    else {
-        packet = &mapIterator->second.packet;
-        ec = mapIterator->second.errorCode;
+    if (mapIterator != mSendTransfers.end()) {
+        notifySendListener(&mapIterator->second.packet, mapIterator->second.errorCode);
         mSendTransfers.erase(mapIterator);
+        return;
     }
-    notifySendListener(packet, ec);
+    notifySendListener(nullptr, TRANSPORT_ERROR);
 }
 
 void UsbTransport::finishReceiveTransfer() {

@@ -45,11 +45,11 @@ public: // Transport Interface
     void setMaxPayloadSize(size_t maxPayloadSize) override;
 
 public: // Callbacks | CALLED FROM LIBUSB's EVENT HANDLING THREAD
-    static void sSendHeadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
-    static void sSendPayloadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sSendHeadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sSendPayloadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
 
-    static void sReceiveHeadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
-    static void sReceivePayloadCallback(const LibusbTransfer::Pointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sReceiveHeadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sReceivePayloadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
 
 private: // Definitions
     enum Flags {
@@ -63,6 +63,7 @@ private: // Definitions
     };
 
     struct TransferPack {
+        // Stores a packet to transfer, message and payload transfers and error code
         TransferPack() = default;
         inline explicit TransferPack(APacket&& packet)
             : packet(std::move(packet))
@@ -72,8 +73,8 @@ private: // Definitions
         {}
 
         APacket packet;
-        LibusbTransfer::Pointer messageTransfer;
-        LibusbTransfer::Pointer payloadTransfer;
+        LibusbTransfer::SharedPointer messageTransfer;
+        LibusbTransfer::SharedPointer payloadTransfer;
         ErrorCode errorCode = OK;
     };
 
