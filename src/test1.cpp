@@ -82,7 +82,7 @@ int main()
         }
 
         for (auto& device : list) {
-            auto uniqueTransport = UsbTransport::createTransport(device);
+            auto uniqueTransport = UsbTransport::makeTransport(device);
             if (uniqueTransport) {
                 auto deviceDescriptor = device.getDescriptor();
                 std::cout << "Device found. VenID: " << deviceDescriptor->idVendor << ", ProdID: " << deviceDescriptor->idProduct

@@ -12,7 +12,7 @@ set(ADBLIB_SRC
         src/Features.cpp
         src/AStream.cpp
         src/AdbDevice.cpp
-        src/utils.cpp)
+        src/utils.cpp src/test2.cpp)
 
 add_library(adblib ${ADBLIB_SRC})
 add_subdirectory(obj-libusb)
@@ -21,9 +21,11 @@ add_subdirectory(obj-libusb)
 target_link_libraries(adblib obj_libusb)
 target_include_directories(adblib PUBLIC include/ obj-libusb/include/)
 
-# test
+# tests
 add_executable(test1 src/test1.cpp)
+add_executable(test2 src/test2.cpp)
 add_executable(test_utils src/test_utils.cpp)
 target_link_libraries(test1 adblib)
+target_link_libraries(test2 adblib)
 target_link_libraries(test_utils adblib)
 

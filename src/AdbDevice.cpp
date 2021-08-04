@@ -182,7 +182,7 @@ std::optional<AdbDevice::StreamsRef>  AdbDevice::open(const std::string_view& de
 
     auto& streams = mStreams[myId];
     streams.istream.reset(new AIStream{shared_from_this()});
-    streams.ostream.reset(new AOStream{shared_from_this(), awaitingStruct.remoteId});
+    streams.ostream.reset(new AOStream{shared_from_this(), myId, awaitingStruct.remoteId});
 
     mAwaitingStreams.erase(iterator);
     return StreamsRef{*streams.istream, *streams.ostream};

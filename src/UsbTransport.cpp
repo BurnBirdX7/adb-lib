@@ -110,17 +110,17 @@ UsbTransport::~UsbTransport()
         mHandle.releaseInterface(mInterfaceData.interfaceNumber);
 }
 
-std::unique_ptr<UsbTransport> UsbTransport::createTransport(const LibusbDevice& device)
+std::unique_ptr<UsbTransport> UsbTransport::makeTransport(const LibusbDevice& device)
 {
     auto interfaceData = findAdbInterface(device);
     if (!interfaceData.has_value())
         return {}; // If interface wasn't found - return empty pointer
 
-    return createTransport(device, *interfaceData);
+    return makeTransport(device, *interfaceData);
 }
 
 std::unique_ptr<UsbTransport>
-UsbTransport::createTransport(const LibusbDevice& device, const InterfaceData& interfaceHint)
+UsbTransport::makeTransport(const LibusbDevice& device, const InterfaceData& interfaceHint)
 {
     UsbTransport transport(device, interfaceHint);
     if (transport.isOk())

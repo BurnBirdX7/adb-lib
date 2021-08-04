@@ -103,7 +103,7 @@ void AdbBase::sendConnect(const FeatureSet& featureSet)
 
     packet.movePayloadIn(std::move(payload));
     packet.updateMessageDataLength();
-    packet.computeChecksum();               // Checksum has to be computed regardless of version
+    packet.computeChecksum(); // Checksum has to be computed regardless of version
 
     mTransport->send(std::move(packet));
 }
@@ -118,7 +118,7 @@ void AdbBase::sendAuth(AdbBase::AuthType type, APayload payload)
     APacket packet(AMessage::make(A_AUTH, type, 0));
     packet.movePayloadIn(std::move(payload));
     packet.updateMessageDataLength();
-    packet.computeChecksum();
+    packet.computeChecksum(); // Checksum has to be computed regardless of version
     mTransport->send(std::move(packet));
 }
 
@@ -127,7 +127,10 @@ void AdbBase::sendOpen(AdbBase::Arg localStreamId, APayload payload)
     APacket packet(AMessage::make(A_OPEN, localStreamId, 0));
     packet.movePayloadIn(std::move(payload));
     packet.updateMessageDataLength();
-    packet.computeChecksum();
+
+    if (mVersion <= A_VERSION_SKIP_CHECKSUM)
+        packet.computeChecksum();
+
     mTransport->send(std::move(packet));
 }
 

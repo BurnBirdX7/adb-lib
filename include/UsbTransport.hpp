@@ -31,8 +31,8 @@ public:
     virtual ~UsbTransport();
 
 public: // Creation
-    static std::unique_ptr<UsbTransport> createTransport(const LibusbDevice& device);
-    static std::unique_ptr<UsbTransport> createTransport(const LibusbDevice& device, const InterfaceData& interfaceHint);
+    static std::unique_ptr<UsbTransport> makeTransport(const LibusbDevice& device);
+    static std::unique_ptr<UsbTransport> makeTransport(const LibusbDevice& device, const InterfaceData& interfaceHint);
     static bool isAdbInterface(const libusb_interface_descriptor& interfaceDescriptor);
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
 
