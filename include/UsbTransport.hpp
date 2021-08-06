@@ -104,7 +104,7 @@ private: // Fields
 
     std::recursive_mutex mReceiveMutex;
     TransferPack mReceiveTransferPack;
-    bool isReceiving = false;
+    bool mIsReceiving = false;
 
     uint8_t mFlags;
 

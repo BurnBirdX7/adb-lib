@@ -23,6 +23,11 @@ void AdbDevice::connect() {
     assert(getConnectionState() == OFFLINE);
     sendConnect("host", mFeatureSet);
     setConnectionState(CONNECTING);
+
+    // TODO: Replace with something sane
+    std::mutex mutex;
+    std::unique_lock lock(mutex);
+    mConnected.wait_for(lock, std::chrono::seconds(5));
 }
 
 bool AdbDevice::isConnected() const {
@@ -111,6 +116,7 @@ void AdbDevice::processConnect(const APacket& packet) {
                 // TODO: Report unknown property (?)
             }
         }
+        mConnected.notify_one();
     } // !isAwaitingConnection()
     // TODO: Else
 }
@@ -126,8 +132,28 @@ void AdbDevice::processReady(const APacket&)
 
 }
 
-void AdbDevice::processClose(const APacket&)
+void AdbDevice::processClose(const APacket& packet)
 {
+    const auto& message = packet.getMessage();
+    assert(message.command == A_CLSE);
+
+    auto localId = message.arg1;
+    std::unique_lock lock(mStreamsMutex);
+
+    auto awaitingIt = mAwaitingStreams.find(localId);
+    if (awaitingIt != mAwaitingStreams.end()) {
+        auto& awaitingStruct = awaitingIt->second;
+        awaitingStruct.rejected = true;
+        awaitingStruct.remoteId = 0;
+        awaitingStruct.cv.notify_one();
+        return;
+    }
+
+    auto activeIt = mStreams.find(localId);
+    if (activeIt != mStreams.end()) {
+        // TODO: Kill living stream
+    }
+
 
 }
 
@@ -169,12 +195,12 @@ std::optional<AdbDevice::StreamsRef>  AdbDevice::open(const std::string_view& de
         return std::nullopt;
 
     auto& iterator = pairIteratorBool.first;
-    auto& awaitingStruct = iterator->second; // pair.iterator->mapValue
+    auto& awaitingStruct = iterator->second;
 
     AdbBase::sendOpen(myId, std::move(APayload(destination)));
+
     // Wait for READY or CLOSE packet
     awaitingStruct.cv.wait(lock);
-
     if (awaitingStruct.rejected) {
         mAwaitingStreams.erase(iterator);
         return std::nullopt;

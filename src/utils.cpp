@@ -23,9 +23,9 @@ std::vector<std::string_view> utils::tokenize(std::string_view view, const std::
 std::string utils::dataToHex(const std::string_view& payload)
 {
     std::stringstream ss;
-    ss << std::setfill('0');
+    ss << std::setfill('0') << std::hex;
     for (const auto& ch : payload) {
-        ss << std::setw(2) << std::hex << static_cast<short>(ch);
+        ss << std::setw(2) << static_cast<short>(ch);
     }
 
     std::string result;

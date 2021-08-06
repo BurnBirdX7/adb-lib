@@ -53,6 +53,7 @@ private:
     void packetListener(const APacket& packet);
     void errorListener(int errorCode, const APacket* packet, bool incomingPacket);
 
+private:
     FeatureSet mFeatureSet;
 
     // Details:
@@ -60,6 +61,9 @@ private:
     std::string mProduct = {};
     std::string mModel   = {};
     std::string mDevice  = {};
+
+    // Auxiliary:
+    std::condition_variable mConnected;
 
     // Streams:
     struct Streams {

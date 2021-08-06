@@ -19,7 +19,6 @@ int main() {
 
     // Find device:
     auto devices = usbContext->getDeviceVector();
-
     std::unique_ptr<Transport> transport;
 
     for (const auto& device : devices) {
@@ -33,17 +32,25 @@ int main() {
         break;
     }
 
+    devices.resize(0); // unref devices
+
     if (!transport) {
         std::cout << "Couldn't open any ADB devices" << std::endl;
         return 1;
     }
 
     // Setup ADB base:
-    bool received = false;
+    bool received;
     auto base = AdbBase::makeUnique(std::move(transport));
 
     base->setPacketListener([&received] (const APacket& packet) {
-        std::cout << "Head: " << packet.getMessage().viewCommand() << std::endl;
+        const auto& msg = packet.getMessage();
+        std::cout << "Head: " << std::endl
+            << "\tcmd: " << msg.viewCommand() << std::endl
+            << "\targ0: " << msg.arg0 << " (hex: " << std::hex << msg.arg0 << std::dec << ")" << std::endl
+            << "\targ1: " << msg.arg1 << std::endl
+            << std::endl;
+
         std::cout << "APayload (size: " << packet.getMessage().dataLength << ") "<< std::endl;
         if (packet.hasPayload() && packet.getPayload().getSize() > 0) {
             const auto& payload = packet.getPayload();
@@ -70,18 +77,17 @@ int main() {
 
     });
 
-    std::mutex mutex;
-    std::unique_lock lock(mutex);
-    base->sendConnect("host", Features::getFullSet());
 
+    // Communicate:
+    received = false;
+    base->sendConnect("host", Features::getFullSet());
+    std::cout << " -> Sent CNXN" << std::endl;
     while(!received)
         std::this_thread::yield();
 
     received = false;
     base->sendOpen(10, APayload("shell"));
-
+    std::cout << " -> Sent OPEN (localId = 10), destination = \"shell\"" << std::endl;
     while(!received)
         std::this_thread::yield();
-
-
 }

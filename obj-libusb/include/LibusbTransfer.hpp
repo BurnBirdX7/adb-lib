@@ -6,7 +6,6 @@
 #include <variant>
 #include <atomic>
 #include <mutex>
-#include <shared_mutex>
 #include "Libusb.hpp"
 
 
@@ -15,9 +14,7 @@ class LibusbTransfer
         : public std::enable_shared_from_this<LibusbTransfer>
 {
 public:
-    using SharedLock = std::shared_lock<std::shared_mutex>;
-    using UniqueLock = std::unique_lock<std::shared_mutex>;
-    using VariantLock = std::variant<const SharedLock*, const UniqueLock*>;
+    using UniqueLock = std::unique_lock<std::recursive_mutex>;
 
     using SharedPointer = std::shared_ptr<LibusbTransfer>;
     using WeakPointer = SharedPointer::weak_type;
@@ -63,43 +60,41 @@ public:
     static SharedPointer createTransfer(int isoPacketsNumber = 0);
 
     // Control
-    void submit(const UniqueLock* lock); // READY-state only
-    void cancel(const UniqueLock* lock); // SUBMITTED-state only
+    void submit(const UniqueLock& lock); // READY-state only
+    void cancel(const UniqueLock& lock); // SUBMITTED-state only
 
     // Locks
-    SharedLock getSharedLock() const;
     UniqueLock getUniqueLock();
 
     // You need to pass shared or unique lock to these functions //
-    uint8_t getFlags    (const VariantLock& lock) const;
-    uint8_t getEndpoint (const VariantLock& lock) const;
-    uint8_t getType     (const VariantLock& lock) const;
-    uint getTimeout     (const VariantLock& lock) const;
-    uint8_t getStatus   (const VariantLock& lock) const;
-    int getLength       (const VariantLock& lock) const;
-    int getActualLength (const VariantLock& lock) const;
-    uint8_t* getBuffer  (const VariantLock& lock) const;
-    void* getUserData   (const VariantLock& lock) const;
+    uint8_t getFlags    (const UniqueLock& lock) const;
+    uint8_t getEndpoint (const UniqueLock& lock) const;
+    uint8_t getType     (const UniqueLock& lock) const;
+    uint getTimeout     (const UniqueLock& lock) const;
+    uint8_t getStatus   (const UniqueLock& lock) const;
+    int getLength       (const UniqueLock& lock) const;
+    int getActualLength (const UniqueLock& lock) const;
+    uint8_t* getBuffer  (const UniqueLock& lock) const;
+    void* getUserData   (const UniqueLock& lock) const;
 
-    void setNewBuffer   (unsigned char* buffer, uint8_t length, const UniqueLock* lock);
-    void setNewUserData (void* userData,                        const UniqueLock* lock);
-    void setNewCallback (TransferCallback callback,             const UniqueLock* lock);
-    void deleteCallback (                                       const UniqueLock* lock);
+    void setNewBuffer   (unsigned char* buffer, uint8_t length, const UniqueLock& lock);
+    void setNewUserData (void* userData,                        const UniqueLock& lock);
+    void setNewCallback (TransferCallback callback,             const UniqueLock& lock);
+    void deleteCallback (                                       const UniqueLock& lock);
 
     // ANY-state:
     State getState() const;
 
     // READY-state only:
-    void reset                  (             const UniqueLock* lock);
-    void enableFreeBufferFlag   (bool enable, const UniqueLock* lock);
-    void enableAddZeroPacketFlag(bool enable, const UniqueLock* lock);
+    void reset                  (             const UniqueLock& lock);
+    void enableFreeBufferFlag   (bool enable, const UniqueLock& lock);
+    void enableAddZeroPacketFlag(bool enable, const UniqueLock& lock);
 
     /* EMPTY-state only:
      * NOTE:
-     * user must destroy supplied buffer and user data
-     * ONLY after supplied callback is called
+     * user must destroy supplied buffer
+     * ONLY after callback is called
      */
-
     void fillBulk(const LibusbDeviceHandle& device,
                   uint8_t                   endpoint,
                   unsigned char*            buffer,
@@ -107,7 +102,7 @@ public:
                   TransferCallback          callback,
                   void*                     userData,
                   unsigned int              timeout,
-                  const UniqueLock*         lock);
+                  const UniqueLock&         lock);
 
     // Callback's auxiliary
     static void staticCallbackWrapper(libusb_transfer* libusbTransfer);
@@ -116,19 +111,15 @@ public:
 private:
     // Callback's auxiliary
     static void staticSubmitTransfer(LibusbTransfer& transfer);
-    void callbackWrapper(const UniqueLock* lock);
+    void callbackWrapper(const UniqueLock& lock);
 
     // Threads auxiliary
-    bool isVariantLocked(const VariantLock& lock) const;
-    template <class L>
-    bool isLocked(const L& lock) const {
-        return (lock.mutex() == &mMutex) && lock.owns_lock();
-    }
+    bool isLocked(const UniqueLock & lock) const;
 
 private:
     explicit LibusbTransfer(int isoPacketsNumber);
 
-    mutable std::shared_mutex mMutex;
+    mutable std::recursive_mutex mMutex;
 
     libusb_transfer* mTransfer;
     std::atomic<State> mState;
