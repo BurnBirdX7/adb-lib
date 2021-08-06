@@ -27,6 +27,12 @@ struct AMessage {
                 .dataCheck = 0,
                 .magic = command ^ ALL_ONES_UL};
     }
+
+    [[nodiscard]] inline std::string_view viewCommand() const {
+        auto* ptr = reinterpret_cast<const char*>(&command);
+        return {ptr, 4};
+    }
+
 };
 
 class APacket {

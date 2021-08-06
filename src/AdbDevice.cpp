@@ -21,7 +21,7 @@ AdbDevice::AdbDevice(AdbDevice::UniqueTransport &&transport)
 
 void AdbDevice::connect() {
     assert(getConnectionState() == OFFLINE);
-    sendConnect(mFeatureSet);
+    sendConnect("host", mFeatureSet);
     setConnectionState(CONNECTING);
 }
 

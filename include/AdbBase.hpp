@@ -64,7 +64,7 @@ public: // Util
     [[nodiscard]] bool checkPacketValidity(const APacket& packet) const;
 
 public: // Send
-    void sendConnect(const FeatureSet& featureSet);
+    void sendConnect(const std::string& systemType, const FeatureSet& featureSet);
     void sendTls(Arg type, Arg version);
     void sendAuth(AuthType type, APayload payload);
     void sendOpen(Arg localStreamId, APayload payload);
@@ -83,12 +83,13 @@ public: // Incoming packets
 public: // Errors
     void setErrorListener(ErrorListener);
     void resetErrorListener();
+    void reportSuccessfulSends(bool enable = true);
 
 protected:
     explicit AdbBase(UniqueTransport&& pointer, uint32_t version = A_VERSION);
     AdbBase(AdbBase&& other) noexcept;
 
-    void listenersSetup();
+    void setup();
 
 private:
     uint32_t mVersion;
@@ -98,7 +99,7 @@ private:
 
     PacketListener mPacketListener;
     ErrorListener mErrorListener;
-
+    bool mReportSuccessfulSends;
 };
 
 

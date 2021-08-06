@@ -98,11 +98,11 @@ private: // Fields
     LibusbDeviceHandle mHandle;
     InterfaceData mInterfaceData;
 
-    std::mutex mSendMutex;
+    std::recursive_mutex mSendMutex;
     TransfersContainer mSendTransfers;
     //TODO: Replace map by more efficient container
 
-    std::mutex mReceiveMutex;
+    std::recursive_mutex mReceiveMutex;
     TransferPack mReceiveTransferPack;
     bool isReceiving = false;
 

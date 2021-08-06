@@ -92,16 +92,13 @@ bool AdbBase::checkPacketValidity(const APacket& packet) const
     return true;
 }
 
-void AdbBase::sendConnect(const FeatureSet& featureSet)
+void AdbBase::sendConnect(const std::string& systemType, const FeatureSet& featureSet)
 {
-    APacket packet(AMessage::make(A_CNXN, mVersion, mTransport->getMaxPayloadSize()));
-    std::string identity = mSystemType + "::"; // TODO: Add possibility to add Serial number to the identity string
+    std::string identity = systemType + "::"; // TODO: Add possibility to add Serial number to the identity string
     identity += "features=" + Features::setToString(featureSet);
 
-    APayload payload(identity.size());
-    std::copy(identity.begin(), identity.end(), payload.getBuffer());
-
-    packet.movePayloadIn(std::move(payload));
+    APacket packet(AMessage::make(A_CNXN, mVersion, mTransport->getMaxPayloadSize()));
+    packet.movePayloadIn(APayload(identity));
     packet.updateMessageDataLength();
     packet.computeChecksum(); // Checksum has to be computed regardless of version
 
@@ -197,7 +194,7 @@ AdbBase::AdbBase(AdbBase::UniqueTransport&& pointer, uint32_t version)
         , mConnectionState(OFFLINE)
 {
     setVersion(version);
-    listenersSetup();
+    setup();
 }
 
 AdbBase::AdbBase(AdbBase&& other) noexcept
@@ -205,31 +202,32 @@ AdbBase::AdbBase(AdbBase&& other) noexcept
         , mVersion(other.mVersion)
         , mSystemType(std::move(other.mSystemType))
         , mConnectionState(OFFLINE)
+        , mReportSuccessfulSends(false)
 {
-    listenersSetup();
+    setup();
 }
 
-void AdbBase::listenersSetup()
+void AdbBase::setup()
 {
     mTransport->setReceiveListener(
             [this](const APacket* packet, Transport::ErrorCode errorCode) {
-                if (errorCode == Transport::OK) {
-                    if (mPacketListener)
-                        mPacketListener(*packet);
-                    return;
-                }
+                if (errorCode == Transport::OK && mPacketListener)
+                    mPacketListener(*packet);
+                else if(mErrorListener)
+                    mErrorListener(errorCode, packet, true);
 
-                if(mErrorListener)
-                    mErrorListener(errorCode, packet, false);
+                mTransport->receive();
             }
     );
 
     mTransport->setSendListener(
             [this](const APacket* packet, Transport::ErrorCode errorCode) {
-                if (errorCode != Transport::OK && mErrorListener)
-                    mErrorListener(errorCode, packet, true);
+                if ((errorCode != Transport::OK || mReportSuccessfulSends) && mErrorListener)
+                    mErrorListener(errorCode, packet, false);
             }
     );
+
+    mTransport->receive();
 }
 
 APayload AdbBase::makeConnectionString(const std::string_view& systemType,
@@ -239,6 +237,7 @@ APayload AdbBase::makeConnectionString(const std::string_view& systemType,
     auto featureString = "features=" + Features::setToString(featureSet);
     size_t len = systemType.length() + serial.length() + featureString.length() + 2;
     APayload payload(len);
+    payload.setDataSize(len);
     size_t payloadI = 0;
 
     for (size_t i = 0; i < systemType.size(); ++i, ++payloadI)
@@ -253,4 +252,9 @@ APayload AdbBase::makeConnectionString(const std::string_view& systemType,
         payload[payloadI] = featureString[i];
 
     return payload;
+}
+
+void AdbBase::reportSuccessfulSends(bool enable)
+{
+    mReportSuccessfulSends = enable;
 }
