@@ -7,7 +7,7 @@
 #include "adb.hpp"
 #include "APayload.hpp"
 
-constexpr uint32_t ALL_ONES_UL = ~uint32_t(0);
+constexpr uint32_t ALL_ONES_UINT32 = ~uint32_t(0);
 
 struct AMessage {
     using field = uint32_t;
@@ -25,7 +25,7 @@ struct AMessage {
                 .arg1 = arg1,
                 .dataLength = 0,
                 .dataCheck = 0,
-                .magic = command ^ ALL_ONES_UL};
+                .magic = command ^ ALL_ONES_UINT32};
     }
 
     [[nodiscard]] inline std::string_view viewCommand() const {

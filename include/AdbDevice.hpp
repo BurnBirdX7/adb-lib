@@ -8,9 +8,9 @@
 
 
 // Streams:
-class AStream;
-class AIStream;
-class AOStream;
+class AdbStreamBase;
+class AdbIStream;
+class AdbOStream;
 
 class AdbDevice
         : protected AdbBase
@@ -21,8 +21,8 @@ public:
     using UniqueTransport = Transport::UniquePointer;
 
     struct StreamsRef {
-        AIStream& istream;
-        AOStream& ostream;
+        AdbIStream& istream;
+        AdbOStream& ostream;
     };
 
 
@@ -67,8 +67,8 @@ private:
 
     // Streams:
     struct Streams {
-        std::unique_ptr<AIStream> istream;
-        std::unique_ptr<AOStream> ostream;
+        std::unique_ptr<AdbIStream> istream;
+        std::unique_ptr<AdbOStream> ostream;
     };
 
     struct StreamsAwaiting {
@@ -84,8 +84,8 @@ private:
     std::map<uint32_t /*localId*/, StreamsAwaiting> mAwaitingStreams;
 
 private:
-    friend AIStream;
-    friend AOStream;
+    friend AdbIStream;
+    friend AdbOStream;
 
 };
 

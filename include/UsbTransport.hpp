@@ -33,6 +33,7 @@ public:
 public: // Creation
     static std::unique_ptr<UsbTransport> makeTransport(const LibusbDevice& device);
     static std::unique_ptr<UsbTransport> makeTransport(const LibusbDevice& device, const InterfaceData& interfaceHint);
+
     static bool isAdbInterface(const libusb_interface_descriptor& interfaceDescriptor);
     static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
 
@@ -100,7 +101,7 @@ private: // Fields
 
     std::recursive_mutex mSendMutex;
     TransfersContainer mSendTransfers;
-    //TODO: Replace map by more efficient container
+    //TODO: Replace map with more efficient container
 
     std::recursive_mutex mReceiveMutex;
     TransferPack mReceiveTransferPack;

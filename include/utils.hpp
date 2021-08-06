@@ -12,7 +12,6 @@ namespace utils {
 
     std::string dataToHex(const std::string_view& payload);
 
-
 }
 
 #endif //ADB_LIB_UTILS_HPP

@@ -3,7 +3,7 @@
 #include <cassert>
 
 #include "utils.hpp"
-#include "AStream.hpp"
+#include "streams/AdbStreamBase.hpp"
 
 
 AdbDevice::AdbDevice(AdbDevice::UniqueTransport &&transport)
@@ -21,6 +21,7 @@ AdbDevice::AdbDevice(AdbDevice::UniqueTransport &&transport)
 
 void AdbDevice::connect() {
     assert(getConnectionState() == OFFLINE);
+
     sendConnect("host", mFeatureSet);
     setConnectionState(CONNECTING);
 
@@ -28,6 +29,8 @@ void AdbDevice::connect() {
     std::mutex mutex;
     std::unique_lock lock(mutex);
     mConnected.wait_for(lock, std::chrono::seconds(5));
+    if (!isConnected())
+        setConnectionState(OFFLINE);
 }
 
 bool AdbDevice::isConnected() const {
@@ -207,7 +210,7 @@ std::optional<AdbDevice::StreamsRef>  AdbDevice::open(const std::string_view& de
     }
 
     auto& streams = mStreams[myId];
-    streams.istream.reset(new AIStream{shared_from_this()});
+    streams.istream.reset(new AdbIStream{shared_from_this()});
     streams.ostream.reset(new AOStream{shared_from_this(), myId, awaitingStruct.remoteId});
 
     mAwaitingStreams.erase(iterator);
