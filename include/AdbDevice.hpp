@@ -5,12 +5,8 @@
 #include <condition_variable>
 
 #include "AdbBase.hpp"
+#include "AdbStreams.hpp"
 
-
-// Streams:
-class AdbStreamBase;
-class AdbIStream;
-class AdbOStream;
 
 class AdbDevice
         : protected AdbBase
@@ -20,9 +16,9 @@ public:
     using SharedPointer = std::shared_ptr<AdbDevice>;
     using UniqueTransport = Transport::UniquePointer;
 
-    struct StreamsRef {
-        AdbIStream& istream;
-        AdbOStream& ostream;
+    struct Streams {
+        AdbIStream istream;
+        AdbOStream ostream;
     };
 
 
@@ -33,7 +29,7 @@ public:
     void setFeatures(FeatureSet features);
 
     void connect();
-    std::optional<StreamsRef> open(const std::string_view& destination);
+    std::optional<Streams> open(const std::string_view& destination);
 
     [[nodiscard]] bool isConnected() const;
     [[nodiscard]] bool isAwaitingConnection() const;
@@ -65,10 +61,10 @@ private:
     // Auxiliary:
     std::condition_variable mConnected;
 
-    // Streams:
-    struct Streams {
-        std::unique_ptr<AdbIStream> istream;
-        std::unique_ptr<AdbOStream> ostream;
+    // StreamBases:
+    struct StreamBases {
+        std::shared_ptr<AdbIStreamBase> istream;
+        std::shared_ptr<AdbOStreamBase> ostream;
     };
 
     struct StreamsAwaiting {
@@ -78,14 +74,14 @@ private:
     };
 
     std::mutex mStreamsMutex;
-    std::map<uint32_t /*localId*/, Streams> mStreams;
+    std::map<uint32_t /*localId*/, StreamBases> mStreams;
 
     uint32_t mLastLocalId;
     std::map<uint32_t /*localId*/, StreamsAwaiting> mAwaitingStreams;
 
 private:
-    friend AdbIStream;
-    friend AdbOStream;
+    friend AdbIStreamBase;
+    friend AdbOStreamBase;
 
 };
 

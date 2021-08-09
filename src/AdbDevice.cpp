@@ -3,7 +3,7 @@
 #include <cassert>
 
 #include "utils.hpp"
-#include "streams/AdbStreamBase.hpp"
+#include "AdbStreams.hpp"
 
 
 AdbDevice::AdbDevice(AdbDevice::UniqueTransport &&transport)
@@ -186,7 +186,7 @@ void AdbDevice::errorListener(int errorCode, const APacket* packet, bool incomin
     // TODO: Process Errors
 }
 
-std::optional<AdbDevice::StreamsRef>  AdbDevice::open(const std::string_view& destination)
+std::optional<AdbDevice::Streams>  AdbDevice::open(const std::string_view& destination)
 {
     std::unique_lock lock (mStreamsMutex);
     auto myId = ++mLastLocalId;
@@ -210,11 +210,12 @@ std::optional<AdbDevice::StreamsRef>  AdbDevice::open(const std::string_view& de
     }
 
     auto& streams = mStreams[myId];
-    streams.istream.reset(new AdbIStream{shared_from_this()});
-    streams.ostream.reset(new AOStream{shared_from_this(), myId, awaitingStruct.remoteId});
+    streams.istream.reset(new AdbIStreamBase{shared_from_this()});
+    streams.ostream.reset(new AdbOStreamBase{shared_from_this(), myId, awaitingStruct.remoteId});
 
     mAwaitingStreams.erase(iterator);
-    return StreamsRef{*streams.istream, *streams.ostream};
+    return Streams{AdbIStream(streams.istream),
+                   AdbOStream(streams.ostream)};
 }
 
 std::shared_ptr<AdbDevice> AdbDevice::make(AdbDevice::UniqueTransport &&transport) {

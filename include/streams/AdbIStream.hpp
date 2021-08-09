@@ -1,24 +1,19 @@
 #ifndef ADB_LIB_ADBISTREAM_HPP
 #define ADB_LIB_ADBISTREAM_HPP
 
-#include "streams/AdbStreamBase.hpp"
+#include "AdbIStreamBase.hpp"
 
-class AdbIStream
-{
+
+class AdbIStream {
 public:
-    using Base = AdbStreamBase;
-    using DevicePointer = Base::DevicePointer;
+    explicit AdbIStream(const std::shared_ptr<AdbIStreamBase>& basePtr);
 
     AdbIStream& operator>> (std::string& string);
     AdbIStream& operator>> (APayload& payload);
 
-protected:
-    friend AdbDevice;
-    std::condition_variable mReceived;
+private:
+    std::weak_ptr<AdbIStreamBase> mBasePtr;
 
-    explicit AdbIStream(DevicePointer pointer);
-
-    void received(const APayload& payload);
 };
 
 #endif //ADB_LIB_ADBISTREAM_HPP

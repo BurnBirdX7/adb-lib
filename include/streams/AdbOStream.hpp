@@ -1,39 +1,20 @@
 #ifndef ADB_LIB_ADBOSTREAM_HPP
 #define ADB_LIB_ADBOSTREAM_HPP
 
-#include <memory>
-#include <mutex>
+#include "AdbOStreamBase.hpp"
 
-#include "streams/AdbOStream.hpp"
-#include "APayload.hpp"
 
 class AdbOStream
 {
 public:
-    using Base = AdbStreamBase;
-    using DevicePointer = Base::DevicePointer;
+    explicit AdbOStream(const std::shared_ptr<AdbOStreamBase>& basePtr);
 
     AdbOStream& operator<< (const std::string_view& string);
-    AdbOStream& operator<< (const APayload& payload);
-    AdbOStream& operator<< (APayload&& payload);
-
-protected:
-    friend AdbDevice;
-
-    AdbOStream(DevicePointer pointer, uint32_t localId, uint32_t remoteId);
-
-    void ready();
+    AdbOStream& operator<< (APayload payload);
 
 private:
-    bool mReady;
-    uint32_t mLocalId;
-    uint32_t mRemoteId;
-
-    void send(APayload&& payload);
-
-    std::std::weak_ptr<Base> mBase;
+    std::weak_ptr<AdbOStreamBase> mBasePtr;
 
 };
-
 
 #endif //ADB_LIB_ADBOSTREAM_HPP

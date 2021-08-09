@@ -23,9 +23,6 @@ protected:
     std::deque<APayload> mQueue;
     std::mutex mQueueMutex;
     DevicePointer mDevice;
-
-    friend class AIStream;
-    friend class AOStream;
 };
 
 
