@@ -12,15 +12,16 @@ APayload::APayload(size_t bufferSize)
 }
 
 APayload::APayload(const std::string_view& view)
-    : APayload(view, view.length())
+    : APayload(view, view.length() + 1)
 {}
 
 APayload::APayload(const std::string_view &view, size_t bufferSize)
     : APayload(bufferSize)
 {
-    assert(bufferSize >= view.length());
+    assert(bufferSize > view.length());
     std::copy(view.begin(), view.end(), mBuffer);
-    mDataSize = view.length();
+    mBuffer[view.length()] = 0;
+    mDataSize = view.length() + 1;
 }
 
 
