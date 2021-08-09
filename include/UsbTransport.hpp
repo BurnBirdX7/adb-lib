@@ -43,8 +43,6 @@ public: // Transport Interface
     void send(APacket&& packet) override;
     void receive() override;
 
-    void setMaxPayloadSize(size_t maxPayloadSize) override;
-
 public: // Callbacks | CALLED FROM LIBUSB's EVENT HANDLING THREAD
     static void sSendHeadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
     static void sSendPayloadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);

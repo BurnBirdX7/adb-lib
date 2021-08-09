@@ -148,9 +148,9 @@ void AdbBase::sendWrite(AdbBase::Arg localStreamId, AdbBase::Arg remoteStreamId,
     mTransport->send(std::move(packet));
 }
 
-void AdbBase::sendClose(AdbBase::Arg localStreamId, AdbBase::Arg removeStreamId)
+void AdbBase::sendClose(AdbBase::Arg localStreamId, AdbBase::Arg remoteStreamId)
 {
-    mTransport->send(APacket(AMessage::make(A_CLSE, localStreamId, removeStreamId)));
+    mTransport->send(APacket(AMessage::make(A_CLSE, localStreamId, remoteStreamId)));
 }
 
 AdbBase::~AdbBase()

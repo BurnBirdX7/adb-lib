@@ -365,8 +365,3 @@ void UsbTransport::finishReceiveTransfer() {
     notifyReceiveListener(&mReceiveTransferPack.packet, mReceiveTransferPack.errorCode);
     mIsReceiving = false;
 }
-
-void UsbTransport::setMaxPayloadSize(size_t maxPayloadSize)
-{
-    Transport::setMaxPayloadSize(maxPayloadSize);
-}

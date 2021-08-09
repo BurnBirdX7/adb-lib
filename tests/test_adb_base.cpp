@@ -1,10 +1,8 @@
 #include <iostream>
 #include <thread>
-#include <mutex>
 #include <condition_variable>
 
 #include <LibusbContext.hpp>
-#include <LibusbDevice.hpp>
 
 #include <AdbBase.hpp>
 #include <utils.hpp>
@@ -18,21 +16,21 @@ int main() {
     usbThread.detach();
 
     // Find device:
-    auto devices = usbContext->getDeviceVector();
     std::unique_ptr<Transport> transport;
 
-    for (const auto& device : devices) {
-        auto optInterface = UsbTransport::findAdbInterface(device);
-        if (!optInterface)
-            continue;
+    {   // Find ADB devices
+        auto devices = usbContext->getDeviceVector();
+        for (const auto& device : devices) {
+            auto optInterface = UsbTransport::findAdbInterface(device);
+            if (!optInterface)
+                continue;
 
-        std::cout << "Found ADB Device" << std::endl;
+            std::cout << "Found ADB Device" << std::endl;
 
-        transport = UsbTransport::makeTransport(device, *optInterface);
-        break;
+            transport = UsbTransport::makeTransport(device, *optInterface);
+            break;
+        }
     }
-
-    devices.resize(0); // unref devices
 
     if (!transport) {
         std::cout << "Couldn't open any ADB devices" << std::endl;
@@ -41,9 +39,10 @@ int main() {
 
     // Setup ADB base:
     bool received;
+    uint32_t remoteStreamId = 0;
     auto base = AdbBase::makeUnique(std::move(transport));
 
-    base->setPacketListener([&received] (const APacket& packet) {
+    base->setPacketListener([&received, &remoteStreamId] (const APacket& packet) {
         const auto& msg = packet.getMessage();
         std::cout << "Head: " << std::endl
             << "\tcmd: " << msg.viewCommand() << std::endl
@@ -69,6 +68,9 @@ int main() {
         }
 
         received = true;
+
+        if (packet.getMessage().command == A_OKAY)
+            remoteStreamId = packet.getMessage().arg0;
     });
 
     base->setErrorListener([] (int errorCode, const APacket* packet, bool incomingPacket) {
@@ -86,8 +88,19 @@ int main() {
         std::this_thread::yield();
 
     received = false;
-    base->sendOpen(10, APayload("shell"));
-    std::cout << " -> Sent OPEN (localId = 10), destination = \"shell\"" << std::endl;
+    std::string str = "shell:ls";
+    base->sendOpen(10, APayload(str));
+    std::cout << " -> Sent OPEN (localId = 10), destination = \"" << str << "\"" << std::endl;
+    while(!received)
+        std::this_thread::yield();
+
+
+    if (remoteStreamId == 0)
+        return 0;
+
+    received = false;
+    base->sendClose(10, remoteStreamId);
+    std::cout << " -> Sent CLSE (localId = 10), remoteId = " << remoteStreamId << std::endl;
     while(!received)
         std::this_thread::yield();
 }

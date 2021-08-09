@@ -70,7 +70,7 @@ public: // Send
     void sendOpen(Arg localStreamId, APayload payload);
     void sendReady(Arg localStreamId, Arg remoteStreamId);
     void sendWrite(Arg localStreamId, Arg remoteStreamId, APayload payload);
-    void sendClose(Arg localStreamId, Arg removeStreamId);
+    void sendClose(Arg localStreamId, Arg remoteStreamId);
 
     static APayload makeConnectionString(const std::string_view& systemType,
                                          const std::string_view& serial,
