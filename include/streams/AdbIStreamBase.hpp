@@ -7,11 +7,8 @@ class AdbIStreamBase
         : public AdbStreamBase
 {
 public:
-    std::string getAsString();
     APayload getAsPayload();
-
     void received(const APayload& payload);
-
 
 protected:
     friend AdbDevice;

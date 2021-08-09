@@ -130,9 +130,24 @@ void AdbDevice::processOpen(const APacket&)
 
 }
 
-void AdbDevice::processReady(const APacket&)
+void AdbDevice::processReady(const APacket& packet)
 {
+    assert(packet.getMessage().command == A_OKAY);
+    const auto& message = packet.getMessage();
+    auto localId = message.arg1;
 
+    // find if it is an active stream
+    auto activeIt = mStreams.find(localId);
+    if (activeIt != mStreams.end()) {
+        activeIt->second.ostream->ready();
+        return;
+    }
+
+    auto awaitingIt = mAwaitingStreams.find(localId);
+    if (awaitingIt != mAwaitingStreams.end()) {
+        awaitingIt->second.remoteId = message.arg0;
+        awaitingIt->second.cv.notify_one();
+    }
 }
 
 void AdbDevice::processClose(const APacket& packet)
@@ -160,9 +175,19 @@ void AdbDevice::processClose(const APacket& packet)
 
 }
 
-void AdbDevice::processWrite(const APacket&)
+void AdbDevice::processWrite(const APacket& packet)
 {
+    assert(packet.getMessage().command == A_WRTE);
+    if (!packet.hasPayload())
+        return;
 
+    const auto& message = packet.getMessage();
+    auto localId = message.arg1;
+
+    auto it = mStreams.find(localId);
+    if (it != mStreams.end())
+        it->second.istream->received(packet.getPayload());
+    // ignore, if we have not found stream
 }
 
 void AdbDevice::processAuth(const APacket& packet)

@@ -28,18 +28,26 @@ int main() {
     auto device = AdbDevice::make(std::move(transport));
 
     device->connect();
-    if (device->isConnected())
-        std::cout << "Device connected" << std::endl;
-    else {
+    if (!device->isConnected()) {
         std::cout << "Device wasn't connected..." << std::endl;
         return 0;
     }
+    std::cout << "Device connected" << std::endl;
 
-    auto streams = device->open("shell");
-    if (streams)
-        std::cout << "Streams were opened" << std::endl;
-    else
-        std::cout << "Streams were not opened" << std::endl;
+    std::string dest = "shell:echo \"Hello, world!\" ";
+    std::cout << "open stream to " << dest << std::endl;
+    auto streams = device->open(dest);
+    if (!streams) {
+        std::cout << "Streams did not open" << std::endl;
+        return 0;
+    }
+
+    std::cout << "Streams opened" << std::endl;
+    auto& in = streams->istream;
+
+    std::string str;
+    in >> str;
+    std::cout << " > " << str << std::endl;
 
     return 0;
 }

@@ -14,16 +14,13 @@ void AdbIStreamBase::received(const APayload& payload)
     mReceived.notify_one();
 }
 
-std::string AdbIStreamBase::getAsString()
-{
-    return getAsPayload().toString();
-}
-
 APayload AdbIStreamBase::getAsPayload()
 {
     std::unique_lock lock(mQueueMutex);
-    if (mQueue.empty())
+    if (mOpen && mQueue.empty())
         mReceived.wait(lock, [this] {return !mQueue.empty();});
+    else if (!mOpen)
+        return APayload{0};
 
     auto payload = std::move(mQueue.front());
     mQueue.pop_front();

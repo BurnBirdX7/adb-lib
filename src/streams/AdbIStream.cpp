@@ -1,11 +1,16 @@
 #include "streams/AdbIStream.hpp"
 #include "APayload.hpp"
 
+
+AdbIStream::AdbIStream(const std::shared_ptr<AdbIStreamBase>& basePtr)
+: mBasePtr(basePtr)
+{}
+
 AdbIStream& AdbIStream::operator>>(std::string &string)
 {
     auto shared = mBasePtr.lock();
     if (shared)
-        string = std::move(shared->getAsString());
+        string = std::move(shared->getAsPayload().toString());
 
     return *this;
 }
@@ -18,7 +23,3 @@ AdbIStream& AdbIStream::operator>> (APayload& payload)
 
     return *this;
 }
-
-AdbIStream::AdbIStream(const std::shared_ptr<AdbIStreamBase>& basePtr)
-    : mBasePtr(basePtr)
-{}
