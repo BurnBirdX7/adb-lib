@@ -1,6 +1,8 @@
 #include "streams/AdbOStreamBase.hpp"
 #include "AdbDevice.hpp"
 
+#include <cassert>
+
 
 AdbOStreamBase::AdbOStreamBase(AdbOStreamBase::DevicePointer pointer, uint32_t localId, uint32_t remoteId)
     : AdbStreamBase(std::move(pointer))
@@ -11,6 +13,9 @@ AdbOStreamBase::AdbOStreamBase(AdbOStreamBase::DevicePointer pointer, uint32_t l
 
 void AdbOStreamBase::send(APayload&& payload)
 {
+    if (!mOpen)
+        return;
+
     std::unique_lock lock(mQueueMutex);
     if (mReady && mQueue.empty()) {
         mReady = false;
@@ -23,6 +28,9 @@ void AdbOStreamBase::send(APayload&& payload)
 
 void AdbOStreamBase::ready()
 {
+    if (!mOpen)
+        return;
+
     std::unique_lock lock(mQueueMutex);
     if (!mQueue.empty()) {
         mDevice->sendWrite(mLocalId, mRemoteId, std::move(mQueue.front()));

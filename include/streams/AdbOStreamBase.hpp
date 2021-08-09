@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <mutex>
+#include <atomic>
 
 #include "streams/AdbStreamBase.hpp"
 #include "APayload.hpp"
@@ -11,14 +12,11 @@ class AdbOStreamBase
         : public AdbStreamBase
 {
 public:
-
     void send(APayload&& payload);
 
 protected:
     friend AdbDevice;
-
     AdbOStreamBase(DevicePointer pointer, uint32_t localId, uint32_t remoteId);
-
     void ready();
 
 private:

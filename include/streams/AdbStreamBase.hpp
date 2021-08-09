@@ -4,10 +4,10 @@
 #include <memory>
 #include <queue>
 #include <mutex>
+#include <atomic>
 #include <condition_variable>
-#include "APayload.hpp"
 
-
+class APayload;
 class AdbDevice;
 
 class AdbStreamBase {
@@ -16,13 +16,18 @@ public:
 
     AdbStreamBase(const AdbStreamBase&) = delete;
     AdbStreamBase(AdbStreamBase&&) = delete;
+    [[nodiscard]] bool isOpen() const;
 
 protected:
     explicit AdbStreamBase(DevicePointer pointer);
+    void close();
 
+protected:
     std::deque<APayload> mQueue;
     std::mutex mQueueMutex;
     DevicePointer mDevice;
+
+    std::atomic<bool> mOpen;
 };
 
 

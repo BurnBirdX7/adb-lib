@@ -1,5 +1,5 @@
 #include "streams/AdbIStreamBase.hpp"
-
+#include "APayload.hpp"
 
 
 AdbIStreamBase::AdbIStreamBase(std::shared_ptr<AdbDevice> pointer)

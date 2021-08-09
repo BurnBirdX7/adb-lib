@@ -1,5 +1,5 @@
 #include "streams/AdbIStream.hpp"
-
+#include "APayload.hpp"
 
 AdbIStream& AdbIStream::operator>>(std::string &string)
 {

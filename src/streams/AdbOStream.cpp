@@ -1,5 +1,10 @@
 #include "streams/AdbOStream.hpp"
 
+
+AdbOStream::AdbOStream(const std::shared_ptr<AdbOStreamBase>& basePtr)
+    : mBasePtr(basePtr)
+{}
+
 AdbOStream& AdbOStream::operator<<(APayload payload)
 {
     auto shared = mBasePtr.lock();
@@ -16,9 +21,4 @@ AdbOStream& AdbOStream::operator<<(const std::string_view& string)
         shared->send(APayload(string));
 
     return *this;
-}
-
-AdbOStream::AdbOStream(const std::shared_ptr<AdbOStreamBase>& basePtr)
-    : mBasePtr(basePtr)
-{
 }
