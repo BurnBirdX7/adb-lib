@@ -1,25 +1,31 @@
 #include "streams/AdbIStream.hpp"
+
+#include <utility>
 #include "APayload.hpp"
 
 
-AdbIStream::AdbIStream(const std::shared_ptr<AdbIStreamBase>& basePtr)
-: mBasePtr(basePtr)
+AdbIStream::AdbIStream(std::shared_ptr<AdbStreamBase> basePtr)
+: mBasePtr(std::move(basePtr))
 {}
 
 AdbIStream& AdbIStream::operator>>(std::string &string)
 {
-    auto shared = mBasePtr.lock();
-    if (shared)
-        string = std::move(shared->getAsPayload().toString());
-
+    string = std::move(mBasePtr->getPayload().toString());
     return *this;
 }
 
 AdbIStream& AdbIStream::operator>> (APayload& payload)
 {
-    auto shared = mBasePtr.lock();
-    if (shared)
-        payload = std::move(shared->getAsPayload());
-
+    payload = std::move(mBasePtr->getPayload());
     return *this;
+}
+
+bool AdbIStream::isOpen()
+{
+    return mBasePtr && mBasePtr->isOpen();
+}
+
+void AdbIStream::close()
+{
+    mBasePtr.reset();
 }

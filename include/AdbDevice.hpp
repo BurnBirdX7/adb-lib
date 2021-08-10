@@ -37,7 +37,11 @@ public:
 private:
     explicit AdbDevice(UniqueTransport&& transport);
 
-private:
+public: // stream's actions
+    void closeStream(uint32_t localId);
+    void send(uint32_t localId, uint32_t remoteId, APayload&& payload);
+
+private: // packet processing
     void processConnect(const APacket&);
     void processOpen(const APacket&);
     void processReady(const APacket&);
@@ -62,10 +66,7 @@ private:
     std::condition_variable mConnected;
 
     // StreamBases:
-    struct StreamBases {
-        std::shared_ptr<AdbIStreamBase> istream;
-        std::shared_ptr<AdbOStreamBase> ostream;
-    };
+    using StreamBase = std::weak_ptr<AdbStreamBase>;
 
     struct StreamsAwaiting {
         std::condition_variable cv = {};
@@ -74,14 +75,10 @@ private:
     };
 
     std::mutex mStreamsMutex;
-    std::map<uint32_t /*localId*/, StreamBases> mStreams;
+    std::map<uint32_t /*localId*/, StreamBase> mStreams;
 
     uint32_t mLastLocalId;
     std::map<uint32_t /*localId*/, StreamsAwaiting> mAwaitingStreams;
-
-private:
-    friend AdbIStreamBase;
-    friend AdbOStreamBase;
 
 };
 

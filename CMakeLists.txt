@@ -14,8 +14,6 @@ set(ADBLIB_SRC
         src/AdbDevice.cpp
         src/utils.cpp
         src/streams/AdbStreamBase.cpp
-        src/streams/AdbIStreamBase.cpp
-        src/streams/AdbOStreamBase.cpp
         src/streams/AdbIStream.cpp
         src/streams/AdbOStream.cpp
         )

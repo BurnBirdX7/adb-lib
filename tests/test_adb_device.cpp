@@ -10,6 +10,7 @@ int main() {
     auto usbContext = LibusbContext::makeContext();
     usbContext->spawnEventHandlingThread().detach();
 
+    std::cout << "Searching for ADB Device..." << std::endl;
     std::unique_ptr<UsbTransport> transport;
     {
         auto vector = usbContext->getDeviceVector();
@@ -24,30 +25,31 @@ int main() {
         std::cout << "Couldn't create any transports" << std::endl;
         return 0;
     }
+    std::cout << "Device found. Transport created." << std::endl
+    << "Connecting to the device..." << std::endl;
 
     auto device = AdbDevice::make(std::move(transport));
-
     device->connect();  // CONNECT TO THE DEVICE
     if (!device->isConnected()) {
-        std::cout << "Device wasn't connected..." << std::endl;
+        std::cout << "Couldn't establish connection with device." << std::endl;
         return 0;
     }
-    std::cout << "Device connected" << std::endl;
+    std::cout << "Device connected." << std::endl;
 
     std::string dest = "shell:echo \"Hello, world!\"";
-    std::cout << "open stream to " << dest << std::endl;
+    std::cout << "Opening stream to " << dest << "..." << std::endl;
     auto streams = device->open(dest);  // OPEN STREAM
     if (!streams) {
-        std::cout << "Streams did not open" << std::endl;
+        std::cout << "Couldn't open the streams." << std::endl;
         return 0;
     }
 
-    std::cout << "Streams opened" << std::endl;
+    std::cout << "The streams opened." << std::endl;
     auto& in = streams->istream;
 
-    std::string str;
-    in >> str;  // READ FROM STREAM
-    std::cout << " > " << str << std::endl;
+    std::string result;
+    in >> result;  // READ FROM STREAM
+    std::cout << "The input stream returned: \"" << result << '"' << std::endl;
 
     return 0;
 }

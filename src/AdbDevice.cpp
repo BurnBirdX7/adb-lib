@@ -139,7 +139,9 @@ void AdbDevice::processReady(const APacket& packet)
     // find if it is an active stream
     auto activeIt = mStreams.find(localId);
     if (activeIt != mStreams.end()) {
-        activeIt->second.ostream->ready();
+        auto stream = activeIt->second.lock();
+        if (stream)
+            stream->readyToSend();
         return;
     }
 
@@ -169,10 +171,10 @@ void AdbDevice::processClose(const APacket& packet)
 
     auto activeIt = mStreams.find(localId);
     if (activeIt != mStreams.end()) {
-        // TODO: Kill living stream
+        auto shared = activeIt->second.lock();
+        if (shared)
+            shared->close();
     }
-
-
 }
 
 void AdbDevice::processWrite(const APacket& packet)
@@ -185,9 +187,11 @@ void AdbDevice::processWrite(const APacket& packet)
     auto localId = message.arg1;
 
     auto it = mStreams.find(localId);
-    if (it != mStreams.end())
-        it->second.istream->received(packet.getPayload());
-    // ignore, if we have not found stream
+    if (it != mStreams.end()) {
+        auto stream = it->second.lock();
+        if (stream)
+            stream->received(packet.getPayload());
+    }
 }
 
 void AdbDevice::processAuth(const APacket& packet)
@@ -214,9 +218,9 @@ void AdbDevice::errorListener(int errorCode, const APacket* packet, bool incomin
 std::optional<AdbDevice::Streams>  AdbDevice::open(const std::string_view& destination)
 {
     std::unique_lock lock (mStreamsMutex);
-    auto myId = ++mLastLocalId;
+    auto localId = ++mLastLocalId;
     auto pairIteratorBool = mAwaitingStreams.emplace(std::piecewise_construct,
-                                                     std::make_tuple(myId),
+                                                     std::make_tuple(localId),
                                                      std::make_tuple());
 
     if (!pairIteratorBool.second)
@@ -225,7 +229,7 @@ std::optional<AdbDevice::Streams>  AdbDevice::open(const std::string_view& desti
     auto& iterator = pairIteratorBool.first;
     auto& awaitingStruct = iterator->second;
 
-    AdbBase::sendOpen(myId, std::move(APayload(destination)));
+    AdbBase::sendOpen(localId, std::move(APayload(destination)));
 
     // Wait for READY or CLOSE packet
     awaitingStruct.cv.wait(lock);
@@ -234,15 +238,34 @@ std::optional<AdbDevice::Streams>  AdbDevice::open(const std::string_view& desti
         return std::nullopt;
     }
 
-    auto& streams = mStreams[myId];
-    streams.istream.reset(new AdbIStreamBase{shared_from_this()});
-    streams.ostream.reset(new AdbOStreamBase{shared_from_this(), myId, awaitingStruct.remoteId});
+    std::shared_ptr<AdbStreamBase> base{new AdbStreamBase{shared_from_this(), localId, awaitingStruct.remoteId}};
+    mStreams[localId] = base;
 
     mAwaitingStreams.erase(iterator);
-    return Streams{AdbIStream(streams.istream),
-                   AdbOStream(streams.ostream)};
+    return Streams{AdbIStream(base),
+                   AdbOStream(base)};
 }
 
 std::shared_ptr<AdbDevice> AdbDevice::make(AdbDevice::UniqueTransport &&transport) {
     return SharedPointer{new AdbDevice{std::move(transport)}};
+}
+
+void AdbDevice::closeStream(uint32_t localId)
+{
+    auto it = mStreams.find(localId);
+    if (it == mStreams.end())
+        return;
+
+    auto shared = it->second.lock();
+    if (shared) {
+        sendClose(shared->mLocalId, shared->mRemoteId);
+        shared->close();
+    }
+
+    mStreams.erase(it);
+}
+
+void AdbDevice::send(uint32_t localId, uint32_t remoteId, APayload&& payload)
+{
+    sendWrite(localId, remoteId, std::move(payload));
 }

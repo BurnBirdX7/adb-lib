@@ -1,24 +1,31 @@
+#include <APayload.hpp>
+#include <utility>
 #include "streams/AdbOStream.hpp"
 
-
-AdbOStream::AdbOStream(const std::shared_ptr<AdbOStreamBase>& basePtr)
-    : mBasePtr(basePtr)
+AdbOStream::AdbOStream(std::shared_ptr<AdbStreamBase> basePtr)
+    : mBasePtr(std::move(basePtr))
 {}
 
 AdbOStream& AdbOStream::operator<<(APayload payload)
 {
-    auto shared = mBasePtr.lock();
-    if (shared)
-        shared->send(std::move(payload));
-
+    if (mBasePtr)
+        mBasePtr->send(std::move(payload));
     return *this;
 }
 
 AdbOStream& AdbOStream::operator<<(const std::string_view& string)
 {
-    auto shared = mBasePtr.lock();
-    if (shared)
-        shared->send(APayload(string));
-
+    if (mBasePtr)
+        mBasePtr->send(APayload(string));
     return *this;
+}
+
+bool AdbOStream::isOpen()
+{
+    return mBasePtr && mBasePtr->isOpen();
+}
+
+void AdbOStream::close()
+{
+    mBasePtr->close();
 }
