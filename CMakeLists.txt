@@ -21,8 +21,14 @@ set(ADBLIB_SRC
 add_library(adblib ${ADBLIB_SRC})
 add_subdirectory(obj-libusb)
 
+find_package(MbedTLS REQUIRED)
+
 # build
-target_link_libraries(adblib obj_libusb)
+target_link_libraries(adblib PUBLIC
+        obj_libusb
+        MbedTLS::mbedtls
+        MbedTLS::mbedcrypto
+        MbedTLS::mbedx509)
 target_include_directories(adblib PUBLIC include/ obj-libusb/include/)
 
 # tests

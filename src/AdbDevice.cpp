@@ -1,6 +1,8 @@
 #include "AdbDevice.hpp"
 
 #include <cassert>
+#include <fstream>
+#include <filesystem>
 
 #include "utils.hpp"
 #include "AdbStreams.hpp"
@@ -28,7 +30,7 @@ void AdbDevice::connect() {
     // TODO: Replace with something sane
     std::mutex mutex;
     std::unique_lock lock(mutex);
-    mConnected.wait_for(lock, std::chrono::seconds(5));
+    mConnected.wait(lock);
     if (!isConnected())
         setConnectionState(OFFLINE);
 }
@@ -137,8 +139,8 @@ void AdbDevice::processReady(const APacket& packet)
     auto localId = message.arg1;
 
     // find if it is an active stream
-    auto activeIt = mStreams.find(localId);
-    if (activeIt != mStreams.end()) {
+    auto activeIt = mActiveStreams.find(localId);
+    if (activeIt != mActiveStreams.end()) {
         auto stream = activeIt->second.lock();
         if (stream)
             stream->readyToSend();
@@ -169,8 +171,8 @@ void AdbDevice::processClose(const APacket& packet)
         return;
     }
 
-    auto activeIt = mStreams.find(localId);
-    if (activeIt != mStreams.end()) {
+    auto activeIt = mActiveStreams.find(localId);
+    if (activeIt != mActiveStreams.end()) {
         auto shared = activeIt->second.lock();
         if (shared)
             shared->close();
@@ -186,8 +188,8 @@ void AdbDevice::processWrite(const APacket& packet)
     const auto& message = packet.getMessage();
     auto localId = message.arg1;
 
-    auto it = mStreams.find(localId);
-    if (it != mStreams.end()) {
+    auto it = mActiveStreams.find(localId);
+    if (it != mActiveStreams.end()) {
         auto stream = it->second.lock();
         if (stream)
             stream->received(packet.getPayload());
@@ -196,7 +198,25 @@ void AdbDevice::processWrite(const APacket& packet)
 
 void AdbDevice::processAuth(const APacket& packet)
 {
+    assert(packet.getMessage().command == A_AUTH);
+    assert(packet.getMessage().arg0 == AuthType::TOKEN);
 
+    setConnectionState(AUTHORIZING);
+
+    if (!packet.hasPayload()) { // empty AUTH, there's an error, stop authorizing
+        setConnectionState(UNAUTHORIZED);
+        mConnected.notify_one();
+        return;
+    }
+
+    if (mLastTriedKey >= mPrivateKeyPaths.size()) {
+        sendPublicKey();
+        return;
+    }
+
+    auto signature = signWithPrivateKey(packet.getPayload());
+    if (signature)
+        sendAuth(AuthType::SIGNATURE, std::move(*signature));
 }
 
 void AdbDevice::processTls(const APacket&)
@@ -239,7 +259,7 @@ std::optional<AdbDevice::Streams>  AdbDevice::open(const std::string_view& desti
     }
 
     std::shared_ptr<AdbStreamBase> base{new AdbStreamBase{shared_from_this(), localId, awaitingStruct.remoteId}};
-    mStreams[localId] = base;
+    mActiveStreams[localId] = base;
 
     mAwaitingStreams.erase(iterator);
     return Streams{AdbIStream(base),
@@ -252,8 +272,8 @@ std::shared_ptr<AdbDevice> AdbDevice::make(AdbDevice::UniqueTransport &&transpor
 
 void AdbDevice::closeStream(uint32_t localId)
 {
-    auto it = mStreams.find(localId);
-    if (it == mStreams.end())
+    auto it = mActiveStreams.find(localId);
+    if (it == mActiveStreams.end())
         return;
 
     auto shared = it->second.lock();
@@ -262,10 +282,86 @@ void AdbDevice::closeStream(uint32_t localId)
         shared->close();
     }
 
-    mStreams.erase(it);
+    mActiveStreams.erase(it);
 }
 
 void AdbDevice::send(uint32_t localId, uint32_t remoteId, APayload&& payload)
 {
     sendWrite(localId, remoteId, std::move(payload));
+}
+
+void AdbDevice::setPrivateKeyPaths(std::vector<std::string> paths)
+{
+    mPrivateKeyPaths = std::move(paths);
+}
+
+void AdbDevice::addPrivateKeyPath(const std::string_view& path)
+{
+    mPrivateKeyPaths.emplace_back(path);
+}
+
+void AdbDevice::setPublicKeyPath(const std::string_view& path)
+{
+    mPublicKeyPath = path;
+}
+
+std::optional<APayload> AdbDevice::signWithPrivateKey(const APayload& hash)
+{
+    auto id = mLastTriedKey++;
+    assert(id < mPrivateKeyPaths.size());
+
+    auto pk = utils::crypto::makePkContextFromPem(mPrivateKeyPaths[id]);
+    if (!pk)
+        return std::nullopt;
+
+    APayload signature(256);
+    signature.setDataSize(256);
+    if (utils::crypto::sign(pk,
+                            hash.getBuffer(), hash.getSize(),
+                            signature.getBuffer(), signature.getSize()))
+    {
+        mbedtls_pk_free(pk);
+        return signature;
+    }
+    mbedtls_pk_free(pk);
+    return std::nullopt;
+}
+
+void AdbDevice::sendPublicKey()
+{
+    if (mPublicKeyPath.empty() || mPublicIsAlreadyTried) {
+        setConnectionState(UNAUTHORIZED);
+        mConnected.notify_one();
+        return;
+    }
+
+    std::ifstream fin(mPublicKeyPath);
+    size_t size = std::filesystem::file_size(mPublicKeyPath);
+    APayload key(size);
+    key.setDataSize(size);
+    fin.read(reinterpret_cast<char*>(key.getBuffer()), size);
+    // TODO: Check I/O exceptions
+
+    sendAuth(AuthType::RSAPUBLICKEY, std::move(key));
+    mPublicIsAlreadyTried = true;
+}
+
+const std::string& AdbDevice::getModel() const
+{
+    return mModel;
+}
+
+const std::string& AdbDevice::getDevice() const
+{
+    return mDevice;
+}
+
+const std::string& AdbDevice::getSerial() const
+{
+    return mSerial;
+}
+
+const std::string& AdbDevice::getProduct() const
+{
+    return mProduct;
 }

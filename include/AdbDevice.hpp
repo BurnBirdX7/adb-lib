@@ -2,6 +2,7 @@
 #define ADB_LIB_ADBDEVICE_HPP
 
 #include <map>
+#include <vector>
 #include <condition_variable>
 
 #include "AdbBase.hpp"
@@ -26,7 +27,18 @@ public:
     static SharedPointer make(UniqueTransport&& transport);
     ~AdbDevice() override;
 
+    // Features setup
     void setFeatures(FeatureSet features);
+
+    // Keys' setup
+    void setPrivateKeyPaths(std::vector<std::string> paths);
+    void addPrivateKeyPath(const std::string_view& path);
+    void setPublicKeyPath(const std::string_view& path);
+
+    const std::string& getSerial() const;
+    const std::string& getProduct() const;
+    const std::string& getModel() const;
+    const std::string& getDevice() const;
 
     void connect();
     std::optional<Streams> open(const std::string_view& destination);
@@ -37,11 +49,11 @@ public:
 private:
     explicit AdbDevice(UniqueTransport&& transport);
 
-public: // stream's actions
+public: // Stream's actions
     void closeStream(uint32_t localId);
     void send(uint32_t localId, uint32_t remoteId, APayload&& payload);
 
-private: // packet processing
+private: // Packet processing
     void processConnect(const APacket&);
     void processOpen(const APacket&);
     void processReady(const APacket&);
@@ -52,6 +64,10 @@ private: // packet processing
 
     void packetListener(const APacket& packet);
     void errorListener(int errorCode, const APacket* packet, bool incomingPacket);
+
+private:
+    std::optional<APayload> signWithPrivateKey(const APayload& hash);
+    void sendPublicKey();
 
 private:
     FeatureSet mFeatureSet;
@@ -68,18 +84,21 @@ private:
     // StreamBases:
     using StreamBase = std::weak_ptr<AdbStreamBase>;
 
-    struct StreamsAwaiting {
+    struct AwaitingStream {
         std::condition_variable cv = {};
         uint32_t remoteId = 0;
         bool rejected = false;
     };
 
-    std::mutex mStreamsMutex;
-    std::map<uint32_t /*localId*/, StreamBase> mStreams;
-
     uint32_t mLastLocalId;
-    std::map<uint32_t /*localId*/, StreamsAwaiting> mAwaitingStreams;
+    std::mutex mStreamsMutex;
+    std::map<uint32_t /*localId*/, StreamBase> mActiveStreams;
+    std::map<uint32_t /*localId*/, AwaitingStream> mAwaitingStreams;
 
+    std::vector<std::string> mPrivateKeyPaths;
+    size_t mLastTriedKey = 0;
+    std::string mPublicKeyPath;
+    bool mPublicIsAlreadyTried = false;
 };
 
 #endif //ADB_LIB_ADBDEVICE_HPP

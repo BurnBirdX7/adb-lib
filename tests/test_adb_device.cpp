@@ -29,16 +29,31 @@ int main() {
     << "Connecting to the device..." << std::endl;
 
     auto device = AdbDevice::make(std::move(transport));
-    device->connect();  // CONNECT TO THE DEVICE
+
+    // ADD KEYS TO BE ABLE TO CONNECT TO DEVICE THAT REQUIRES AUTHORIZATION
+    device->addPrivateKeyPath("/home/user/.android/adbkey");
+    device->setPublicKeyPath("/home/user/.android/adbkey.pub");
+
+    // CONNECT TO THE DEVICE
+    device->connect();
     if (!device->isConnected()) {
-        std::cout << "Couldn't establish connection with device." << std::endl;
+        std::cout << "Couldn't establish connection with the device." << std::endl;
         return 0;
     }
     std::cout << "Device connected." << std::endl;
+    std::cout << "Info:"
+        << " Product: " << device->getProduct() << std::endl
+        << "\t  Model: " << device->getModel() << std::endl
+        << "\t  Device: " << device->getDevice() << std::endl
+        << "\t  Serial: " << device->getSerial() << std::endl
+        << std::endl;
+
 
     std::string dest = "shell:echo \"Hello, world!\"";
     std::cout << "Opening stream to " << dest << "..." << std::endl;
-    auto streams = device->open(dest);  // OPEN STREAM
+
+    // OPEN STREAM TO A CHOSEN DESTINATION
+    auto streams = device->open(dest);
     if (!streams) {
         std::cout << "Couldn't open the streams." << std::endl;
         return 0;
@@ -47,8 +62,9 @@ int main() {
     std::cout << "The streams opened." << std::endl;
     auto& in = streams->istream;
 
+    // READ FROM THE STREAM
     std::string result;
-    in >> result;  // READ FROM STREAM
+    in >> result;
     std::cout << "The input stream returned: \"" << result << '"' << std::endl;
 
     return 0;
