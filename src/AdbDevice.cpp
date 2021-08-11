@@ -51,10 +51,6 @@ bool AdbDevice::isConnected() const {
     }
 }
 
-void AdbDevice::setFeatures(FeatureSet featureSet) {
-    mFeatureSet = std::move(featureSet);
-}
-
 void AdbDevice::packetListener(const APacket &packet) {
     auto command = packet.getMessage().command;
 
@@ -406,4 +402,9 @@ const std::string& AdbDevice::getSystemType() const
 uint32_t AdbDevice::getConnectionState() const
 {
     return mConnectionState;
+}
+
+const FeatureSet& AdbDevice::getFeatures() const
+{
+    return mFeatureSet;
 }

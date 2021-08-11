@@ -46,7 +46,16 @@ int main() {
         << "\t  Model: " << device->getModel() << std::endl
         << "\t  Device: " << device->getDevice() << std::endl
         << "\t  Serial: " << device->getSerial() << std::endl
+        << "\t  System Type: " << device->getSystemType() << std::endl
         << std::endl;
+
+    std::cout << "Features: " << std::endl;
+    if (!device->getFeatures().empty())
+        for (const auto& feature : device->getFeatures())
+            std::cout << "\t* " << feature << std::endl;
+    else
+        std::cout << " <none> " << std::endl;
+    std::cout << std::endl;
 
 
     std::string dest = "shell:echo \"Hello, world!\"";

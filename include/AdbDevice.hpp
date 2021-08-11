@@ -44,9 +44,6 @@ public:
     static SharedPointer make(UniqueTransport&& transport);
     ~AdbDevice() override;
 
-    // Features setup
-    void setFeatures(FeatureSet features);
-
     // Keys' setup
     void setPrivateKeyPaths(std::vector<std::string> paths);
     void addPrivateKeyPath(const std::string_view& path);
@@ -59,6 +56,7 @@ public:
 
     const std::string& getSystemType() const;
     uint32_t getConnectionState() const;
+    const FeatureSet& getFeatures() const;
 
     void connect();
     std::optional<Streams> open(const std::string_view& destination);
