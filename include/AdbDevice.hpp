@@ -22,6 +22,23 @@ public:
         AdbOStream ostream;
     };
 
+    enum ConnectionState {
+        ANY = -1,
+
+        CONNECTING = 0, // No response from the device yet
+        AUTHORIZING,    // Sending signed tokens to the device
+        UNAUTHORIZED,   // Authorization tokens are exhausted
+        NO_PERMISSION,  // Insufficient permissions to connect the device
+        OFFLINE,        // ???
+
+        // Connected:
+        BOOTLOADER,
+        DEVICE,
+        HOST,
+        RECOVERY,
+        SIDELOAD,
+        RESCUE
+    };
 
 public:
     static SharedPointer make(UniqueTransport&& transport);
@@ -40,8 +57,12 @@ public:
     const std::string& getModel() const;
     const std::string& getDevice() const;
 
+    const std::string& getSystemType() const;
+    uint32_t getConnectionState() const;
+
     void connect();
     std::optional<Streams> open(const std::string_view& destination);
+
 
     [[nodiscard]] bool isConnected() const;
     [[nodiscard]] bool isAwaitingConnection() const;
@@ -65,12 +86,16 @@ private: // Packet processing
     void packetListener(const APacket& packet);
     void errorListener(int errorCode, const APacket* packet, bool incomingPacket);
 
-private:
     std::optional<APayload> signWithPrivateKey(const APayload& hash);
     void sendPublicKey();
 
 private:
+    void setConnectionState(ConnectionState state);
+    bool setSystemType(const std::string_view& systemType);
+
     FeatureSet mFeatureSet;
+    ConnectionState mConnectionState;
+    std::string mSystemType;
 
     // Details:
     std::string mSerial  = {};
@@ -81,7 +106,7 @@ private:
     // Auxiliary:
     std::condition_variable mConnected;
 
-    // StreamBases:
+    // Streams:
     using StreamBase = std::weak_ptr<AdbStreamBase>;
 
     struct AwaitingStream {
@@ -95,6 +120,7 @@ private:
     std::map<uint32_t /*localId*/, StreamBase> mActiveStreams;
     std::map<uint32_t /*localId*/, AwaitingStream> mAwaitingStreams;
 
+    // Keys:
     std::vector<std::string> mPrivateKeyPaths;
     size_t mLastTriedKey = 0;
     std::string mPublicKeyPath;

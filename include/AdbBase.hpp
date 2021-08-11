@@ -23,24 +23,6 @@ public:
         RSAPUBLICKEY = 3
     };
 
-    enum ConnectionState {
-        ANY = -1,
-
-        CONNECTING = 0, // No response from the device yet
-        AUTHORIZING,    // Sending signed tokens to the device
-        UNAUTHORIZED,   // Authorization tokens are exhausted
-        NO_PERMISSION,  // Insufficient permissions to connect the device
-        OFFLINE,        // ???
-
-        // Connected:
-        BOOTLOADER,
-        DEVICE,
-        HOST,
-        RECOVERY,
-        SIDELOAD,
-        RESCUE
-    };
-
 public: // Manage
     virtual ~AdbBase();
 
@@ -51,14 +33,10 @@ public: // Manage
 
 public:
     void setVersion(uint32_t version);
-    bool setSystemType(const std::string_view& systemType);
     void setMaxData(uint32_t maxData); // overrides default version's maxdata value
-    void setConnectionState(ConnectionState state);
 
     [[nodiscard]] uint32_t getVersion() const;
-    [[nodiscard]] const std::string& getSystemType() const;
     [[nodiscard]] uint32_t getMaxData() const;
-    [[nodiscard]] uint32_t getConnectionState() const;
 
 public: // Util
     [[nodiscard]] bool checkPacketValidity(const APacket& packet) const;
@@ -93,8 +71,6 @@ protected:
 
 private:
     uint32_t mVersion;
-    std::string mSystemType;
-    ConnectionState mConnectionState;
     UniqueTransport mTransport;
 
     PacketListener mPacketListener;

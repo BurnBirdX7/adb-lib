@@ -11,6 +11,8 @@
 AdbDevice::AdbDevice(AdbDevice::UniqueTransport &&transport)
     : AdbBase(std::move(transport), A_VERSION)
     , mLastLocalId(0)
+    , mConnectionState(OFFLINE)
+    , mSystemType("none")
 {
     setPacketListener([this](const APacket& packet){
         this->packetListener(packet);
@@ -191,8 +193,10 @@ void AdbDevice::processWrite(const APacket& packet)
     auto it = mActiveStreams.find(localId);
     if (it != mActiveStreams.end()) {
         auto stream = it->second.lock();
-        if (stream)
+        if (stream) {
             stream->received(packet.getPayload());
+            sendReady(stream->mLocalId, stream->mRemoteId);
+        }
     }
 }
 
@@ -364,4 +368,42 @@ const std::string& AdbDevice::getSerial() const
 const std::string& AdbDevice::getProduct() const
 {
     return mProduct;
+}
+
+bool AdbDevice::setSystemType(const std::string_view& systemType)
+{
+    ConnectionState newState;
+    if(systemType == "bootloader")
+        newState = BOOTLOADER;
+    else if (systemType == "device")
+        newState = DEVICE;
+    else if (systemType == "host")
+        newState = HOST;
+    else if (systemType == "recovery")
+        newState = RECOVERY;
+    else if (systemType == "sideload")
+        newState = SIDELOAD;
+    else if (systemType == "rescue")
+        newState = RESCUE;
+    else
+        return false;
+
+    setConnectionState(newState);
+    mSystemType = systemType;
+    return true;
+}
+
+void AdbDevice::setConnectionState(AdbDevice::ConnectionState state)
+{
+    mConnectionState = state;
+}
+
+const std::string& AdbDevice::getSystemType() const
+{
+    return mSystemType;
+}
+
+uint32_t AdbDevice::getConnectionState() const
+{
+    return mConnectionState;
 }

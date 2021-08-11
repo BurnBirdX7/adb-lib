@@ -4,7 +4,6 @@
 
 AdbBase::UniqueTransport AdbBase::moveTransportOut()
 {
-    setConnectionState(ConnectionState::ANY);
     return std::move(mTransport);
 }
 
@@ -15,37 +14,11 @@ void AdbBase::setVersion(uint32_t version)
         mTransport->setMaxPayloadSize(MAX_PAYLOAD_V1);
 }
 
-bool AdbBase::setSystemType(const std::string_view& systemType)
-{
-    ConnectionState newState;
-    if(systemType == "bootloader")
-        newState = BOOTLOADER;
-    else if (systemType == "device")
-        newState = DEVICE;
-    else if (systemType == "host")
-        newState = HOST;
-    else if (systemType == "recovery")
-        newState = RECOVERY;
-    else if (systemType == "sideload")
-        newState = SIDELOAD;
-    else if (systemType == "rescue")
-        newState = RESCUE;
-    else
-        return false;
 
-    setConnectionState(newState);
-    mSystemType = systemType;
-    return true;
-}
 
 void AdbBase::setMaxData(uint32_t maxData)
 {
     mTransport->setMaxPayloadSize(maxData);
-}
-
-void AdbBase::setConnectionState(AdbBase::ConnectionState state)
-{
-    mConnectionState = state;
 }
 
 uint32_t AdbBase::getVersion() const
@@ -53,19 +26,9 @@ uint32_t AdbBase::getVersion() const
     return mVersion;
 }
 
-const std::string& AdbBase::getSystemType() const
-{
-    return mSystemType;
-}
-
 uint32_t AdbBase::getMaxData() const
 {
     return mTransport->getMaxPayloadSize();
-}
-
-uint32_t AdbBase::getConnectionState() const
-{
-    return mConnectionState;
 }
 
 bool AdbBase::checkPacketValidity(const APacket& packet) const
@@ -190,8 +153,6 @@ void AdbBase::resetErrorListener()
 AdbBase::AdbBase(AdbBase::UniqueTransport&& pointer, uint32_t version)
         : mTransport(std::move(pointer))
         , mVersion(0)
-        , mSystemType()
-        , mConnectionState(OFFLINE)
 {
     setVersion(version);
     setup();
@@ -200,8 +161,6 @@ AdbBase::AdbBase(AdbBase::UniqueTransport&& pointer, uint32_t version)
 AdbBase::AdbBase(AdbBase&& other) noexcept
         : mTransport(std::move(other.mTransport))
         , mVersion(other.mVersion)
-        , mSystemType(std::move(other.mSystemType))
-        , mConnectionState(OFFLINE)
         , mReportSuccessfulSends(false)
 {
     setup();
