@@ -1,13 +1,10 @@
-#include <LibusbContext.hpp>
-#include <LibusbDevice.hpp>
-
 #include <AdbDevice.hpp>
 #include <UsbTransport.hpp>
 
 #include <iostream>
 
 int main() {
-    auto usbContext = LibusbContext::makeContext();
+    auto usbContext = ObjLibusbContext::make();
     usbContext->spawnEventHandlingThread().detach();
 
     std::cout << "Searching for ADB Device..." << std::endl;

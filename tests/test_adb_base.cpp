@@ -2,7 +2,7 @@
 #include <thread>
 #include <condition_variable>
 
-#include <LibusbContext.hpp>
+#include <ObjLibusb/Context.hpp>
 
 #include <AdbBase.hpp>
 #include <utils.hpp>
@@ -11,7 +11,7 @@
 int main() {
 
     // Init USB:
-    auto usbContext = LibusbContext::makeContext();
+    auto usbContext = ObjLibusbContext::make();
     auto usbThread = usbContext->spawnEventHandlingThread();
     usbThread.detach();
 
@@ -61,7 +61,7 @@ int main() {
                     std::cout << ch;
             std::cout << std::endl;
 
-            auto hexPayload = utils::dataToHex(payload.toStringView());
+            auto hexPayload = utils::dataToHex(payload.getBuffer(), payload.getSize());
             std::cout << "hex: " << std::endl << '\t' << hexPayload << std::endl;
 
             std::cout << std::endl;

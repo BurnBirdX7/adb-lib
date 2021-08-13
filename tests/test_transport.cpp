@@ -5,10 +5,6 @@
 #include <condition_variable>
 
 
-#include <LibusbContext.hpp>
-#include <LibusbDeviceList.hpp>
-#include <LibusbError.hpp>
-
 #include <UsbTransport.hpp>
 
 // FROM adb/transport.cpp
@@ -72,7 +68,7 @@ std::string featureSetToString(const FeatureSet& set) {
 
 int main()
 {
-    auto context = LibusbContext::makeContext();
+    auto context = ObjLibusbContext::make();
 
     auto uniqueTransport = [&] () -> std::unique_ptr<UsbTransport> {
         auto list = context->getDeviceVector();
@@ -146,7 +142,7 @@ int main()
         transport.send(APacket(packet)); // send copy
         cv.wait(lock);
 
-        if (libusbError != LibusbTransfer::COMPLETED) {
+        if (libusbError != ObjLibusbTransfer::COMPLETED) {
             std::cerr << "Send error code: " << libusbError << std::endl;
             return 1;
         }
@@ -154,7 +150,7 @@ int main()
         std::cout << "Receiving..." << std::endl;
         transport.receive();
         cv.wait(lock);
-        if (libusbError != LibusbTransfer::COMPLETED) {
+        if (libusbError != ObjLibusbTransfer::COMPLETED) {
             std::cerr << "Send error code: " << libusbError << std::endl;
             return 1;
         }
@@ -172,8 +168,8 @@ int main()
             std::cout << std::endl;
         }
     }
-    catch (LibusbError& error) {
-        OBJLIBUSB_IOSTREAM_REPORT_ERROR(std::cerr, error);
+    catch (ObjLibusbError& error) {
+        std::cerr << error.what() << std::endl;
     }
 
     return 0;

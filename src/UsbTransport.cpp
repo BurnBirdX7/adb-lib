@@ -4,10 +4,10 @@
 #include <iostream>
 #include <tuple>
 
-#include <LibusbError.hpp>
+#include <ObjLibusb/Error.hpp>
 
 
-UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData)
+UsbTransport::UsbTransport(const Device& device, const InterfaceData& interfaceData)
     : mDevice(device.referenceDevice())
     , mHandle(device.open())
     , mInterfaceData(interfaceData)
@@ -20,13 +20,13 @@ UsbTransport::UsbTransport(const LibusbDevice& device, const InterfaceData& inte
         mHandle.clearHalt(mInterfaceData.writeEndpointAddress);
         mHandle.clearHalt(mInterfaceData.readEndpointAddress);
     }
-    catch (LibusbError& err) {
-        OBJLIBUSB_IOSTREAM_REPORT_ERROR(std::cerr, err);
+    catch (ObjLibusbError& err) {
+        std::cerr << "UsbTransfer caught exception: " << err.what() << std::endl;
         mFlags &= ~TRANSPORT_IS_OK;
     }
 }
 
-std::optional<InterfaceData> UsbTransport::findAdbInterface(const LibusbDevice& device)
+std::optional<InterfaceData> UsbTransport::findAdbInterface(const Device& device)
 {
     // TODO: Logging
     auto deviceDescriptor = device.getDescriptor();
@@ -107,7 +107,7 @@ UsbTransport::~UsbTransport()
         mHandle.releaseInterface(mInterfaceData.interfaceNumber);
 }
 
-std::unique_ptr<UsbTransport> UsbTransport::makeTransport(const LibusbDevice& device)
+std::unique_ptr<UsbTransport> UsbTransport::makeTransport(const Device& device)
 {
     auto interfaceData = findAdbInterface(device);
     if (!interfaceData.has_value())
@@ -117,7 +117,7 @@ std::unique_ptr<UsbTransport> UsbTransport::makeTransport(const LibusbDevice& de
 }
 
 std::unique_ptr<UsbTransport>
-UsbTransport::makeTransport(const LibusbDevice& device, const InterfaceData& interfaceHint)
+UsbTransport::makeTransport(const Device& device, const InterfaceData& interfaceHint)
 {
     UsbTransport transport(device, interfaceHint);
     if (transport.isOk())
@@ -157,7 +157,7 @@ void UsbTransport::send(APacket&& packet)
     auto* callbackData = new CallbackData{.transport = this,            // Has to be deleted in a callback
                                           .transferId = transferId};    // (either message's or payload's)
     auto& message = transfers.packet.getMessage();
-    transfers.messageTransfer = LibusbTransfer::createTransfer();
+    transfers.messageTransfer = Transfer::createTransfer();
 
     // SUBMIT MESSAGE:
     auto messageLock = transfers.messageTransfer->getUniqueLock();
@@ -175,7 +175,7 @@ void UsbTransport::send(APacket&& packet)
     // SUBMIT PAYLOAD:
     if (transfers.packet.hasPayload()) {
         auto& payload = transfers.packet.getPayload();
-        transfers.payloadTransfer = LibusbTransfer::createTransfer();
+        transfers.payloadTransfer = Transfer::createTransfer();
 
         auto payloadTransferLock = transfers.payloadTransfer->getUniqueLock();
         transfers.payloadTransfer->fillBulk(mHandle,
@@ -203,8 +203,8 @@ void UsbTransport::receive()
     mReceiveTransferPack.messageTransfer->submit(messageLock);
 }
 
-void UsbTransport::sSendHeadCallback(const LibusbTransfer::SharedPointer& headTransfer,
-                                     const LibusbTransfer::UniqueLock& headLock)
+void UsbTransport::sSendHeadCallback(const Transfer::SharedPointer& headTransfer,
+                                     const Transfer::UniqueLock& headLock)
 {
     // GET ESSENTIAL DATA:
     auto callbackData = static_cast<CallbackData*>(headTransfer->getUserData(headLock));
@@ -232,8 +232,8 @@ void UsbTransport::sSendHeadCallback(const LibusbTransfer::SharedPointer& headTr
     // (there's a payload and transferPack is complete) we just let the payload transfer to complete
 }
 
-void UsbTransport::sSendPayloadCallback(const LibusbTransfer::SharedPointer& payloadTransfer,
-                                        const LibusbTransfer::UniqueLock& payloadLock)
+void UsbTransport::sSendPayloadCallback(const Transfer::SharedPointer& payloadTransfer,
+                                        const Transfer::UniqueLock& payloadLock)
 {
     auto callbackData = static_cast<CallbackData*>(payloadTransfer->getUserData(payloadLock));
     auto* transport = callbackData->transport;
@@ -254,7 +254,8 @@ void UsbTransport::sSendPayloadCallback(const LibusbTransfer::SharedPointer& pay
     transport->finishSendTransfer(callbackData, idPackPair);
 }
 
-void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::SharedPointer& headTransfer, const LibusbTransfer::UniqueLock& headLock)
+void UsbTransport::sReceiveHeadCallback(const Transfer::SharedPointer& headTransfer,
+                                        const Transfer::UniqueLock& headLock)
 {
     // GET ESSENTIAL DATA:
     auto* transport = static_cast<UsbTransport*>(headTransfer->getUserData(headLock));
@@ -273,7 +274,8 @@ void UsbTransport::sReceiveHeadCallback(const LibusbTransfer::SharedPointer& hea
 
 }
 
-void UsbTransport::sReceivePayloadCallback(const LibusbTransfer::SharedPointer& payloadTransfer, const LibusbTransfer::UniqueLock& payloadLock)
+void UsbTransport::sReceivePayloadCallback(const Transfer::SharedPointer& payloadTransfer,
+                                           const Transfer::UniqueLock& payloadLock)
 {
     // GET ESSENTIAL DATA:
     auto* transport = static_cast<UsbTransport*>(payloadTransfer->getUserData(payloadLock));
@@ -321,7 +323,7 @@ void UsbTransport::prepareToReceive() {
     // create new head transfer
     auto headBuffer = reinterpret_cast<unsigned char*>(&mReceiveTransferPack.packet.getMessage());
     auto headBufferSize = sizeof(AMessage);
-    mReceiveTransferPack.messageTransfer = LibusbTransfer::createTransfer();
+    mReceiveTransferPack.messageTransfer = Transfer::createTransfer();
     auto messageLock = mReceiveTransferPack.messageTransfer->getUniqueLock();
     mReceiveTransferPack.messageTransfer->fillBulk(mHandle,
                                                    mInterfaceData.readEndpointAddress,
@@ -335,7 +337,7 @@ void UsbTransport::prepareToReceive() {
     // create new payload transfer
     auto payloadBuffer = mReceiveTransferPack.packet.getPayload().getBuffer();
     auto payloadBufferSize = mReceiveTransferPack.packet.getPayload().getBufferSize();
-    mReceiveTransferPack.payloadTransfer = LibusbTransfer::createTransfer();
+    mReceiveTransferPack.payloadTransfer = Transfer::createTransfer();
     auto payloadLock = mReceiveTransferPack.payloadTransfer->getUniqueLock();
     mReceiveTransferPack.payloadTransfer->fillBulk(mHandle,
                                                    mInterfaceData.readEndpointAddress,
