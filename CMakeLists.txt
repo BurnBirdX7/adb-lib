@@ -10,7 +10,6 @@ set(ADBLIB_SRC
         src/APayload.cpp
         src/AdbBase.cpp
         src/Features.cpp
-        src/streams/AdbStreamBase.cpp
         src/AdbDevice.cpp
         src/utils.cpp
         src/streams/AdbStreamBase.cpp
@@ -19,17 +18,19 @@ set(ADBLIB_SRC
         )
 
 add_library(adblib ${ADBLIB_SRC})
-add_subdirectory(obj-libusb)
+add_subdirectory(ObjLibusb)
 
 find_package(MbedTLS REQUIRED)
 
 # build
 target_link_libraries(adblib PUBLIC
-        obj_libusb
+        ObjLibusb
         MbedTLS::mbedtls
         MbedTLS::mbedcrypto
         MbedTLS::mbedx509)
-target_include_directories(adblib PUBLIC include/ obj-libusb/include/)
+target_include_directories(adblib PUBLIC
+        include/
+        ObjLibusb/include/)
 
 # tests
 add_executable(test_transport tests/test_transport.cpp)

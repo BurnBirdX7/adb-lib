@@ -6,10 +6,7 @@
 #include <map>
 #include <mutex>
 
-#include <Libusb.hpp>
-#include <LibusbDevice.hpp>
-#include <LibusbDeviceHandle.hpp>
-#include <LibusbTransfer.hpp>
+#include <ObjLibusb.hpp>
 
 #include "Transport.hpp"
 
@@ -25,17 +22,22 @@ class UsbTransport
         : public Transport
 {
 public:
+    using Device = ObjLibusbDevice;
+    using DeviceHandle = ObjLibusbDeviceHandle;
+    using Transfer = ObjLibusbTransfer;
+
+public:
     UsbTransport(UsbTransport&)       = delete;
     UsbTransport(const UsbTransport&) = delete;
     UsbTransport(UsbTransport&&) noexcept;
     virtual ~UsbTransport();
 
 public: // Creation
-    static std::unique_ptr<UsbTransport> makeTransport(const LibusbDevice& device);
-    static std::unique_ptr<UsbTransport> makeTransport(const LibusbDevice& device, const InterfaceData& interfaceHint);
+    static std::unique_ptr<UsbTransport> makeTransport(const Device& device);
+    static std::unique_ptr<UsbTransport> makeTransport(const Device& device, const InterfaceData& interfaceHint);
 
-    static bool isAdbInterface(const libusb_interface_descriptor& interfaceDescriptor);
-    static std::optional<InterfaceData> findAdbInterface(const LibusbDevice& device);
+    static bool isAdbInterface(const ObjLibusbDescriptors::Interface& interfaceDescriptor);
+    static std::optional<InterfaceData> findAdbInterface(const Device& device);
 
     [[nodiscard]] bool isOk() const;
 
@@ -44,11 +46,11 @@ public: // Transport Interface
     void receive() override;
 
 public: // Callbacks | CALLED FROM LIBUSB's EVENT HANDLING THREAD
-    static void sSendHeadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
-    static void sSendPayloadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sSendHeadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
+    static void sSendPayloadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
 
-    static void sReceiveHeadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
-    static void sReceivePayloadCallback(const LibusbTransfer::SharedPointer&, const LibusbTransfer::UniqueLock& lock);
+    static void sReceiveHeadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
+    static void sReceivePayloadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
 
 private: // Definitions
     enum Flags {
@@ -72,15 +74,15 @@ private: // Definitions
         {}
 
         APacket packet;
-        LibusbTransfer::SharedPointer messageTransfer;
-        LibusbTransfer::SharedPointer payloadTransfer;
+        Transfer::SharedPointer messageTransfer;
+        Transfer::SharedPointer payloadTransfer;
         ErrorCode errorCode = OK;
     };
 
     using TransfersContainer = std::map<size_t /* transferPackId */, TransferPack>;
 
 private: // Private member-functions
-    explicit UsbTransport(const LibusbDevice& device, const InterfaceData& interfaceData);
+    explicit UsbTransport(const Device& device, const InterfaceData& interfaceData);
 
     // auxiliary
     static ErrorCode transferStatusToErrorCode(int libusbTransferErrorCode);
@@ -93,8 +95,8 @@ private: // Private member-functions
     void finishReceiveTransfer();
 
 private: // Fields
-    LibusbDevice mDevice;
-    LibusbDeviceHandle mHandle;
+    Device mDevice;
+    DeviceHandle mHandle;
     InterfaceData mInterfaceData;
 
     std::recursive_mutex mSendMutex;
