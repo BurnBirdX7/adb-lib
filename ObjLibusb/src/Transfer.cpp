@@ -26,11 +26,11 @@ namespace ObjLibusb {
         return Transfer::SharedPointer(new Transfer(isoPacketsNumber));
     }
 
-    void Transfer::submit(const UniqueLock& lock)
+    bool Transfer::submit(const UniqueLock& lock)
     {
         assert(isLocked(lock));
         assert(mState == READY);
-        staticSubmitTransfer(*this);
+        return staticSubmitTransfer(*this, lock);
     }
 
     void Transfer::cancel(const UniqueLock& lock)
@@ -223,15 +223,23 @@ namespace ObjLibusb {
         delete shared;
     }
 
-    void Transfer::staticSubmitTransfer(Transfer& transfer)
+    bool Transfer::staticSubmitTransfer(Transfer& transfer, const UniqueLock& lock)
     {
+        assert(transfer.isLocked(lock));
+
         // This function constructs shared pointer from *this* in dynamic memory
         // This shared pointer has to be destroyed in callback
 
         auto* shared = new SharedPointer{transfer.shared_from_this()};
         transfer.mTransfer->user_data = shared;
-        THROW_ON_LIBUSB_ERROR(libusb_submit_transfer(transfer.mTransfer))
+        auto rc = libusb_submit_transfer(transfer.mTransfer);
+        if (rc != LIBUSB_SUCCESS) {
+            transfer.mLastError = static_cast<libusb_error>(rc);
+            return false;
+        }
+
         transfer.mState = SUBMITTED;
+        return true;
     }
 
     void Transfer::callbackWrapper(const UniqueLock& lock)
@@ -245,6 +253,11 @@ namespace ObjLibusb {
     bool Transfer::isLocked(const Transfer::UniqueLock& lock) const
     {
         return (lock.mutex() == &mMutex) && lock.owns_lock();
+    }
+
+    Transfer::LibusbError Transfer::getLastError() const
+    {
+        return mLastError;
     }
 
 }

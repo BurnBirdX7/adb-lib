@@ -12,7 +12,7 @@ int main() {
     {
         auto vector = usbContext->getDeviceVector();
         for (const auto& device : vector) {
-            transport = UsbTransport::makeTransport(device);
+            transport = UsbTransport::make(device);
             if (transport)
                 break;
         }

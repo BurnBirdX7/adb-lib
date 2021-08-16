@@ -107,17 +107,17 @@ UsbTransport::~UsbTransport()
         mHandle.releaseInterface(mInterfaceData.interfaceNumber);
 }
 
-std::unique_ptr<UsbTransport> UsbTransport::makeTransport(const Device& device)
+std::unique_ptr<UsbTransport> UsbTransport::make(const Device& device)
 {
     auto interfaceData = findAdbInterface(device);
     if (!interfaceData.has_value())
         return {}; // If interface wasn't found - return empty pointer
 
-    return makeTransport(device, *interfaceData);
+    return make(device, *interfaceData);
 }
 
 std::unique_ptr<UsbTransport>
-UsbTransport::makeTransport(const Device& device, const InterfaceData& interfaceHint)
+UsbTransport::make(const Device& device, const InterfaceData& interfaceHint)
 {
     UsbTransport transport(device, interfaceHint);
     if (transport.isOk())
@@ -187,7 +187,11 @@ void UsbTransport::send(APacket&& packet)
                                             0,
                                             payloadTransferLock);
 
-        transfers.payloadTransfer->submit(payloadTransferLock);
+        bool ok = transfers.payloadTransfer->submit(payloadTransferLock);
+        if (!ok) {
+            messageLock.lock();
+            transfers.messageTransfer->cancel(messageLock);
+        }
     }
 }
 
@@ -267,7 +271,12 @@ void UsbTransport::sReceiveHeadCallback(const Transfer::SharedPointer& headTrans
 
     if (transferPack.errorCode == OK && packet.getMessage().dataLength != 0) {
         auto payloadLock = transferPack.payloadTransfer->getUniqueLock();
-        transferPack.payloadTransfer->submit(payloadLock);
+        bool ok = transferPack.payloadTransfer->submit(payloadLock);
+        if (!ok) {
+            // TODO: Logging
+            transferPack.errorCode = UNDERLYING_ERROR;
+            transport->finishReceiveTransfer();
+        }
     }
     else    // if there's error or dataLength equals zero
         transport->finishReceiveTransfer();
@@ -309,7 +318,7 @@ const AMessage& UsbTransport::messageFromBuffer(const uint8_t* buffer) {
 void UsbTransport::prepareToReceive() {
     std::scoped_lock lock(mReceiveMutex);
 
-    // update packet
+    // Update packet
     auto& packet = mReceiveTransferPack.packet;
     if (!packet.hasPayload()) {
         packet.movePayloadIn(APayload{mMaxPayloadSize});
@@ -320,7 +329,7 @@ void UsbTransport::prepareToReceive() {
     }
 
 
-    // create new head transfer
+    // Create new head transfer
     auto headBuffer = reinterpret_cast<unsigned char*>(&mReceiveTransferPack.packet.getMessage());
     auto headBufferSize = sizeof(AMessage);
     mReceiveTransferPack.messageTransfer = Transfer::createTransfer();
@@ -334,7 +343,7 @@ void UsbTransport::prepareToReceive() {
                                                    0,
                                                    messageLock);
 
-    // create new payload transfer
+    // Create new payload transfer
     auto payloadBuffer = mReceiveTransferPack.packet.getPayload().getBuffer();
     auto payloadBufferSize = mReceiveTransferPack.packet.getPayload().getBufferSize();
     mReceiveTransferPack.payloadTransfer = Transfer::createTransfer();
@@ -348,7 +357,7 @@ void UsbTransport::prepareToReceive() {
                                                    0,
                                                    payloadLock);
 
-
+    // Transfers are prepared but aren't submitted
 }
 
 void UsbTransport::finishSendTransfer(UsbTransport::CallbackData* callbackData,

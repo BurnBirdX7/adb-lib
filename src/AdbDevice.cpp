@@ -232,7 +232,11 @@ AdbDevice::~AdbDevice()
 
 void AdbDevice::errorListener(int errorCode, const APacket* packet, bool incomingPacket)
 {
-    // TODO: Process Errors
+    if (errorCode == Transport::ErrorCode::TRANSPORT_DISCONNECTED)
+        setConnectionState(ConnectionState::OFFLINE);
+
+    if (errorCode != Transport::ErrorCode::OK)
+        ;// TODO: Logging
 }
 
 std::optional<AdbDevice::Streams>  AdbDevice::open(const std::string_view& destination)

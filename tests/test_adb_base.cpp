@@ -27,7 +27,7 @@ int main() {
 
             std::cout << "Found ADB Device" << std::endl;
 
-            transport = UsbTransport::makeTransport(device, *optInterface);
+            transport = UsbTransport::make(device, *optInterface);
             break;
         }
     }

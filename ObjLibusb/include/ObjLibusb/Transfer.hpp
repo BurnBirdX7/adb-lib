@@ -10,7 +10,6 @@
 #include "ObjLibusb.hpp"
 
 
-
 namespace ObjLibusb {
 
     class Transfer
@@ -55,6 +54,8 @@ namespace ObjLibusb {
             ADD_ZERO_PACKET = LIBUSB_TRANSFER_ADD_ZERO_PACKET
         };
 
+        using LibusbError = libusb_error;
+
     public:
         Transfer(const Transfer&) = delete;
         Transfer(Transfer&&) = delete;
@@ -63,8 +64,10 @@ namespace ObjLibusb {
         static SharedPointer createTransfer(int isoPacketsNumber = 0);
 
         // Control
-        void submit(const UniqueLock& lock); // READY-state only
+        bool submit(const UniqueLock& lock); // READY-state only
         void cancel(const UniqueLock& lock); // SUBMITTED-state only
+
+        LibusbError getLastError() const;
 
         // Locks
         UniqueLock getUniqueLock();
@@ -113,7 +116,7 @@ namespace ObjLibusb {
 
     private:
         // Callback's auxiliary
-        static void staticSubmitTransfer(Transfer& transfer);
+        static bool staticSubmitTransfer(Transfer& transfer, const UniqueLock& lock);
         void callbackWrapper(const UniqueLock& lock);
 
         // Threads auxiliary
@@ -128,6 +131,8 @@ namespace ObjLibusb {
         std::atomic<State> mState;
         TransferCallback mUserCallback;
         void* mUserData;
+
+        std::atomic<LibusbError> mLastError;
     };
 
 }
