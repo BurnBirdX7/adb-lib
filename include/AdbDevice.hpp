@@ -85,11 +85,12 @@ private: // Packet processing
     void errorListener(int errorCode, const APacket* packet, bool incomingPacket);
 
     std::optional<APayload> signWithPrivateKey(const APayload& hash);
-    void sendPublicKey();
+    bool sendPublicKey();
 
 private:
     void setConnectionState(ConnectionState state);
     bool setSystemType(const std::string_view& systemType);
+    void stopConnecting();
 
     FeatureSet mFeatureSet;
     ConnectionState mConnectionState;
@@ -120,7 +121,7 @@ private:
 
     // Keys:
     std::vector<std::string> mPrivateKeyPaths;
-    size_t mLastTriedKey = 0;
+    size_t mNextKey = 0;
     std::string mPublicKeyPath;
     bool mPublicIsAlreadyTried = false;
 };

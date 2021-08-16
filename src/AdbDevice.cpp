@@ -3,6 +3,7 @@
 #include <cassert>
 #include <fstream>
 #include <filesystem>
+#include <iostream>
 
 #include "utils.hpp"
 #include "AdbStreams.hpp"
@@ -68,6 +69,9 @@ void AdbDevice::packetListener(const APacket &packet) {
         processAuth(packet);
     else if (command == A_STLS)
         processTls(packet);
+    else
+        std::cerr << "AdbDevice: received unknown command: " << packet.getMessage().viewCommand() << std::endl;
+
 }
 
 bool AdbDevice::isAwaitingConnection() const
@@ -209,14 +213,17 @@ void AdbDevice::processAuth(const APacket& packet)
         return;
     }
 
-    if (mLastTriedKey >= mPrivateKeyPaths.size()) {
-        sendPublicKey();
+    if (mNextKey >= mPrivateKeyPaths.size()) {
+        if (!sendPublicKey())
+            stopConnecting();
         return;
     }
 
     auto signature = signWithPrivateKey(packet.getPayload());
     if (signature)
         sendAuth(AuthType::SIGNATURE, std::move(*signature));
+    else if (!sendPublicKey())
+        stopConnecting();
 }
 
 void AdbDevice::processTls(const APacket&)
@@ -311,35 +318,44 @@ void AdbDevice::setPublicKeyPath(const std::string_view& path)
 
 std::optional<APayload> AdbDevice::signWithPrivateKey(const APayload& hash)
 {
-    auto id = mLastTriedKey++;
-    assert(id < mPrivateKeyPaths.size());
-
-    auto pk = utils::crypto::makePkContextFromPem(mPrivateKeyPaths[id]);
-    if (!pk)
-        return std::nullopt;
-
     APayload signature(256);
     signature.setDataSize(256);
-    if (utils::crypto::sign(pk,
-                            hash.getBuffer(), hash.getSize(),
-                            signature.getBuffer(), signature.getSize()))
-    {
+
+    bool tokenSigned = false;
+    while (!tokenSigned) {
+        mbedtls_pk_context* pk = nullptr;
+        auto id = mNextKey;
+        while (id < mPrivateKeyPaths.size() && !pk) // go through all the keys until we can create pk context
+            pk = utils::crypto::makePkContextFromPem(mPrivateKeyPaths[id++]);
+
+        mNextKey = id + 1;
+
+        if (pk == nullptr)  // no valid keys found
+            return std::nullopt;
+
+        tokenSigned = utils::crypto::sign(pk,
+                                          hash.getBuffer(), hash.getSize(),
+                                          signature.getBuffer(), signature.getSize());
+
         mbedtls_pk_free(pk);
-        return signature;
     }
-    mbedtls_pk_free(pk);
-    return std::nullopt;
+
+    return signature;
 }
 
-void AdbDevice::sendPublicKey()
+bool AdbDevice::sendPublicKey()
 {
     if (mPublicKeyPath.empty() || mPublicIsAlreadyTried) {
-        setConnectionState(UNAUTHORIZED);
-        mConnected.notify_one();
-        return;
+        stopConnecting();
+        return false;
     }
 
     std::ifstream fin(mPublicKeyPath);
+    if (!fin.is_open()) {
+        mPublicIsAlreadyTried = true;
+        return false;
+    }
+
     size_t size = std::filesystem::file_size(mPublicKeyPath);
     APayload key(size);
     key.setDataSize(size);
@@ -348,6 +364,7 @@ void AdbDevice::sendPublicKey()
 
     sendAuth(AuthType::RSAPUBLICKEY, std::move(key));
     mPublicIsAlreadyTried = true;
+    return true;
 }
 
 const std::string& AdbDevice::getModel() const
@@ -411,4 +428,10 @@ uint32_t AdbDevice::getConnectionState() const
 const FeatureSet& AdbDevice::getFeatures() const
 {
     return mFeatureSet;
+}
+
+void AdbDevice::stopConnecting()
+{
+    setConnectionState(UNAUTHORIZED);
+    mConnected.notify_one();
 }

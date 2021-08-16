@@ -151,8 +151,13 @@ void UsbTransport::send(APacket&& packet)
     std::scoped_lock lock(mSendMutex);
 
     static size_t transferId = 0;
-    auto res = mSendTransfers.emplace(++transferId, std::move(packet));
-    auto& transfers = res.first->second; // res.[iterator]->[value]
+    auto [transfersIt, inserted] = mSendTransfers.emplace(++transferId, std::move(packet));
+    if (!inserted) {
+        finishSendTransfer(nullptr, mSendTransfers.end());
+        return;
+    }
+
+    auto& transfers = transfersIt->second;
 
     auto* callbackData = new CallbackData{.transport = this,            // Has to be deleted in a callback
                                           .transferId = transferId};    // (either message's or payload's)
@@ -189,8 +194,12 @@ void UsbTransport::send(APacket&& packet)
 
         bool ok = transfers.payloadTransfer->submit(payloadTransferLock);
         if (!ok) {
+            std::cerr << "[UsbTransfer::send(...)] payload transfer wasn't submitted, libusb_error: "
+                << transfers.payloadTransfer->getLastError() << std::endl;
+            std::cerr << "[UsbTransfer::send(...)] head transfer cancelled" << std::endl;
             messageLock.lock();
             transfers.messageTransfer->cancel(messageLock);
+            finishSendTransfer(callbackData, transfersIt);
         }
     }
 }
@@ -217,17 +226,17 @@ void UsbTransport::sSendHeadCallback(const Transfer::SharedPointer& headTransfer
 
     // FIND TRANSFERS DATA:
     std::scoped_lock lock(transport->mSendMutex);
-    auto idPackPair = transport->mSendTransfers.find(transferId);
-    if (idPackPair == transport->mSendTransfers.end()) {
-        transport->finishSendTransfer(callbackData, idPackPair);
+    auto idPackPairIt = transport->mSendTransfers.find(transferId);
+    if (idPackPairIt == transport->mSendTransfers.end()) {
+        transport->finishSendTransfer(callbackData, idPackPairIt);
         return;
     } // !
 
-    auto& transferPack = idPackPair->second;
+    auto& transferPack = idPackPairIt->second;
     transferPack.errorCode = transferStatusToErrorCode(headTransfer->getStatus(headLock));
 
     if (transferPack.payloadTransfer == nullptr)    // if there's no payload, we finish the transfer
-        transport->finishSendTransfer(callbackData, idPackPair);
+        transport->finishSendTransfer(callbackData, idPackPairIt);
     else if (transferPack.errorCode != OK) {        // if the head transfer failed and there's a payload
         auto payloadLock = transferPack.payloadTransfer->getUniqueLock();
         transferPack.payloadTransfer->cancel(payloadLock);
@@ -273,7 +282,8 @@ void UsbTransport::sReceiveHeadCallback(const Transfer::SharedPointer& headTrans
         auto payloadLock = transferPack.payloadTransfer->getUniqueLock();
         bool ok = transferPack.payloadTransfer->submit(payloadLock);
         if (!ok) {
-            // TODO: Logging
+            std::cerr << "[UsbTransport]: payload transfer was not submitted, libusb_error code: "
+                << transferPack.payloadTransfer->getLastError() << std::endl;
             transferPack.errorCode = UNDERLYING_ERROR;
             transport->finishReceiveTransfer();
         }
