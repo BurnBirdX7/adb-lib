@@ -131,7 +131,7 @@ int main()
         transport.setReceiveListener([&] (const APacket* receivedPacket, int errorCode) {
             std::unique_lock lock(mutex);
             libusbError = errorCode;
-            packet.setMessage(receivedPacket->getMessage());     // copy head
+            packet.setMessage(receivedPacket->getMessage());     // copy message
             packet.copyPayloadIn(receivedPacket->getPayload());  // copy payload
             lock.unlock();
             cv.notify_one();

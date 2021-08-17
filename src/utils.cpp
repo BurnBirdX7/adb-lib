@@ -3,7 +3,7 @@
 #include <sstream>
 #include <iomanip>
 #include <random>
-#include <cassert>
+#include <chrono>
 
 std::vector<std::string_view> utils::tokenize(std::string_view view, const std::string_view& delimiters)
 {
@@ -35,10 +35,13 @@ std::string utils::dataToHex(const unsigned char* payload, size_t size)
     return result;
 }
 
+inline unsigned long seed() {
+    return std::random_device{}() + std::chrono::system_clock::now().time_since_epoch().count();
+}
+
 int utils::crypto::generateRandomBytes(void*, unsigned char* output, size_t outputLen)
 {
-    std::random_device rd;
-    std::mt19937 generator(rd());
+    static std::mt19937_64 generator(seed());
 
     for (size_t i = 0; i < outputLen; ++i)
         output[i] = generator();

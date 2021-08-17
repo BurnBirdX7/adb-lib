@@ -46,11 +46,11 @@ public: // Transport Interface
     void receive() override;
 
 public: // Callbacks | CALLED FROM LIBUSB's EVENT HANDLING THREAD
-    static void sSendHeadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
-    static void sSendPayloadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
+    static void staticSendMessageCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& messageLock);
+    static void staticSendPayloadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& payloadLock);
 
-    static void sReceiveHeadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
-    static void sReceivePayloadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& lock);
+    static void staticReceiveMessageCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& messageLock);
+    static void staticReceivePayloadCallback(const Transfer::SharedPointer&, const Transfer::UniqueLock& payloadLock);
 
 private: // Definitions
     enum Flags {
@@ -68,8 +68,6 @@ private: // Definitions
         TransferPack() = default;
         inline explicit TransferPack(APacket&& packet)
             : packet(std::move(packet))
-            , messageTransfer()
-            , payloadTransfer()
             , errorCode(OK)
         {}
 

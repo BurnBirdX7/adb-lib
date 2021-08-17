@@ -25,7 +25,7 @@ public:
 
     void setSendListener(Listener);
     void setReceiveListener(Listener);
-    virtual void setMaxPayloadSize(size_t maxPayloadSize);
+    void setMaxPayloadSize(size_t maxPayloadSize);
     void resetSendListener();
     void resetReceiveListener();
 
