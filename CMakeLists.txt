@@ -36,9 +36,11 @@ target_include_directories(adblib PUBLIC
 add_executable(test_transport tests/test_transport.cpp)
 add_executable(test_base tests/test_adb_base.cpp)
 add_executable(test_device tests/test_adb_device.cpp)
+add_executable(test_shell tests/test_adb_shell.cpp)
 add_executable(test_utils tests/test_utils.cpp)
 target_link_libraries(test_transport adblib)
 target_link_libraries(test_base adblib)
 target_link_libraries(test_device adblib)
+target_link_libraries(test_shell adblib)
 target_link_libraries(test_utils adblib)
 

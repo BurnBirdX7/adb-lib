@@ -11,7 +11,8 @@ public:
     AdbIStream& operator>> (std::string& string);
     AdbIStream& operator>> (APayload& payload);
 
-    bool isOpen();
+    bool isOpen() const;
+    bool isEmpty() const;
     void close();
 
 private:

@@ -20,7 +20,7 @@ AdbIStream& AdbIStream::operator>> (APayload& payload)
     return *this;
 }
 
-bool AdbIStream::isOpen()
+bool AdbIStream::isOpen() const
 {
     return mBasePtr && mBasePtr->isOpen();
 }
@@ -28,4 +28,9 @@ bool AdbIStream::isOpen()
 void AdbIStream::close()
 {
     mBasePtr.reset();
+}
+
+bool AdbIStream::isEmpty() const
+{
+    return mBasePtr->mIncomingQueue.empty();
 }

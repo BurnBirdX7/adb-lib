@@ -99,7 +99,7 @@ private: // Fields
 
     std::recursive_mutex mSendMutex;
     TransfersContainer mSendTransfers;
-    //TODO: Replace map with more efficient container
+    // TODO: Replace map with more efficient container
 
     std::recursive_mutex mReceiveMutex;
     TransferPack mReceiveTransferPack;

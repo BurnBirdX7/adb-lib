@@ -55,39 +55,65 @@ int main(int argc, char** argv) {
     }
     std::cout << "Device connected." << std::endl;
     std::cout << "Info:"
-        << " Product: " << device->getProduct() << std::endl
-        << "\t  Model: " << device->getModel() << std::endl
-        << "\t  Device: " << device->getDevice() << std::endl
-        << "\t  Serial: " << device->getSerial() << std::endl
-        << "\t  System Type: " << device->getSystemType() << std::endl
-        << std::endl;
+    << " Product: " << device->getProduct() << std::endl
+    << "\t  Model: " << device->getModel() << std::endl
+    << "\t  Device: " << device->getDevice() << std::endl
+    << "\t  Serial: " << device->getSerial() << std::endl
+    << "\t  System Type: " << device->getSystemType() << std::endl
+    << std::endl;
+
+    bool shell2 = false;
 
     std::cout << "Features: " << std::endl;
-    if (!device->getFeatures().empty())
-        for (const auto& feature : device->getFeatures())
+    if (!device->getFeatures().empty()) {
+        for (const auto& feature : device->getFeatures()) {
             std::cout << "\t* " << feature << std::endl;
+            if (feature == Feature::shell2)
+                shell2 = true;
+        }
+    }
     else
         std::cout << " <none> " << std::endl;
     std::cout << std::endl;
 
+    if (!shell2) {
+        std::cerr << "This device lacks required feature (shell2)" << std::endl;
+        return 1;
+    }
 
-    std::string dest = "shell:echo \"Hello, world!\"";
+    std::string dest = "shell:";
     std::cout << "Opening stream to " << dest << "..." << std::endl;
 
     // OPEN STREAM TO A CHOSEN DESTINATION
     auto streams = device->open(dest);
     if (!streams) {
-        std::cout << "Couldn't open the streams." << std::endl;
-        return 0;
+        std::cerr << "Couldn't open the streams." << std::endl;
+        return 1;
     }
 
     std::cout << "The streams opened." << std::endl;
     auto& in = streams->istream;
+    auto& out = streams->ostream;
 
-    // READ FROM THE STREAM
-    std::string result;
-    in >> result;
-    std::cout << "The input stream returned: \"" << result << '"' << std::endl;
+    std::string label;
+    in >> label;
+
+    std::string userInput{};
+    while (in.isOpen() && out.isOpen()) {
+        std::string result;
+
+        std::cout << std::endl << label;
+        std::getline(std::cin, userInput);
+        if (userInput == "q")
+            break;
+
+        out << userInput + '\n';
+
+        do { // exhaust input stream
+            in >> result;
+            std::cout << result;
+        } while (!in.isEmpty());
+    }
 
     return 0;
 }
