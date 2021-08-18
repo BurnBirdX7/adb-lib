@@ -39,12 +39,12 @@ namespace ObjLibusb {
 
         enum Status : uint8_t {
             COMPLETED = LIBUSB_TRANSFER_COMPLETED,
-            ERROR = LIBUSB_TRANSFER_ERROR,
+            TRANSFER_ERROR = LIBUSB_TRANSFER_ERROR,
             TIMED_OUT = LIBUSB_TRANSFER_TIMED_OUT,
             CANCELLED = LIBUSB_TRANSFER_CANCELLED,
             STALL = LIBUSB_TRANSFER_STALL,
             NO_DEVICE = LIBUSB_TRANSFER_NO_DEVICE,
-            OVERFLOW = LIBUSB_TRANSFER_OVERFLOW
+            TRANSFER_OVERFLOW = LIBUSB_TRANSFER_OVERFLOW
         };
 
         enum Flag : uint8_t {
@@ -73,15 +73,15 @@ namespace ObjLibusb {
         UniqueLock getUniqueLock();
 
         // You need to pass shared or unique lock to these functions //
-        uint8_t getFlags    (const UniqueLock& lock) const;
-        uint8_t getEndpoint (const UniqueLock& lock) const;
-        uint8_t getType     (const UniqueLock& lock) const;
-        uint getTimeout     (const UniqueLock& lock) const;
-        uint8_t getStatus   (const UniqueLock& lock) const;
-        int getLength       (const UniqueLock& lock) const;
-        int getActualLength (const UniqueLock& lock) const;
-        uint8_t* getBuffer  (const UniqueLock& lock) const;
-        void* getUserData   (const UniqueLock& lock) const;
+        uint8_t getFlags        (const UniqueLock& lock) const;
+        uint8_t getEndpoint     (const UniqueLock& lock) const;
+        uint8_t getType         (const UniqueLock& lock) const;
+        unsigned int getTimeout (const UniqueLock& lock) const;
+        uint8_t getStatus       (const UniqueLock& lock) const;
+        int getLength           (const UniqueLock& lock) const;
+        int getActualLength     (const UniqueLock& lock) const;
+        uint8_t* getBuffer      (const UniqueLock& lock) const;
+        void* getUserData       (const UniqueLock& lock) const;
 
         void setNewBuffer   (unsigned char* buffer, uint8_t length, const UniqueLock& lock);
         void setNewUserData (void* userData,                        const UniqueLock& lock);

@@ -68,7 +68,7 @@ namespace ObjLibusb {
         return mTransfer->type;
     }
 
-    uint Transfer::getTimeout(const UniqueLock& lock) const
+    unsigned int Transfer::getTimeout(const UniqueLock& lock) const
     {
         assert(isLocked(lock));
         assert(mState >= READY);

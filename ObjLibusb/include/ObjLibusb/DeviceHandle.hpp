@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <string>
 
 #include "ObjLibusb.hpp"
 #include "Descriptors.hpp"

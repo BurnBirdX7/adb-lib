@@ -160,8 +160,8 @@ void UsbTransport::send(APacket&& packet)
 
     auto& transfers = transfersIt->second;
 
-    auto* callbackData = new CallbackData{.transport = this,            // Has to be deleted in a callback
-                                          .transferId = transferId};    // (either message's or payload's)
+    auto* callbackData = new CallbackData{this,            // Has to be deleted in a callback
+                                          transferId};    // (either message's or payload's)
     auto& message = transfers.packet.getMessage();
     transfers.messageTransfer = Transfer::createTransfer();
 

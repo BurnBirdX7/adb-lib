@@ -7,7 +7,8 @@
 #include <atomic>
 #include <condition_variable>
 
-class APayload;
+#include "APayload.hpp"
+
 class AdbDevice;
 
 class AdbStreamBase {

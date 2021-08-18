@@ -20,12 +20,12 @@ struct AMessage {
     field magic;      // command ^ 0xffffffff
 
     inline static AMessage make(field command, field arg0, field arg1) {
-        return {.command = command,
-                .arg0 = arg0,
-                .arg1 = arg1,
-                .dataLength = 0,
-                .dataCheck = 0,
-                .magic = command ^ ALL_ONES_UINT32};
+        return {command,
+                arg0,
+                arg1,
+                0,
+                0,
+                command ^ ALL_ONES_UINT32};
     }
 
     [[nodiscard]] inline std::string_view viewCommand() const {
