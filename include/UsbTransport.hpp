@@ -6,7 +6,7 @@
 #include <map>
 #include <mutex>
 
-#include <ObjLibusb.hpp>
+#include <ObjLibusb-1.0/ObjLibusb.hpp>
 
 #include "Transport.hpp"
 

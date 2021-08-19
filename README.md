@@ -1,62 +1,84 @@
 # adb-lib
 
 ## Dependencies
- * [libusb/libusb](https://github.com/libusb/libusb)
- * [ARMmbed/mbedTLS](https://github.com/ARMmbed/mbedtls)
+ * [BurnBirdX7/ObjLibusb](https://github.com/BurnBirdX7/ObjLibusb)
+ * * [libusb/libusb](https://github.com/libusb/libusb) (version 1.0.23)
+ * [ARMmbed/mbedTLS](https://github.com/ARMmbed/mbedtls) (version 3.0.0)
 
-ObjLibusb library (from [BurnBirdX7/ObjLibusb](https://github.com/BurnBirdX7/ObjLibusb)) already in project's files
+You need CMake (version >= 3.15) to build the project.
 
-## Build
+## Preparation
 
-### Preparation
+ * Build (and install) ObjLibusb
+ * Build (and install) Mbed TLS or acquire it any other way
+ 
+*libusb for Objlibusb*
 
-You need to install dependencies.\
-or install them with *apt*:
+### apt:
 ```shell
 sudo apt install libusb-1.0-0-dev
 sudo apt install libmbedtls-dev
 ```
 
-You can install libusb from *vcpkg*:
+### *vcpkg*:
 ```shell
 vcpkg install libusb
+vcpkg install mbedtls
 ```
+### Any other way...
 
-You can build libusb and MbedTLS by yourself or download binaries.
+You have to build ObjLibusb by yourself.
 
 
+*If installing with **apt** or **vcpkg** check if versions of packages meet requirements**
 
-### CMake
-(in project's root; requires CMake version >= 3.15)
+## Build
+(in project's root)
 ```shell
 mkdir build && cd build
 cmake ..                # generate project
 cmake --build .         # build project
 ```
 
-#### vcpkg
-if you use **vcpkg** you may need to set `CMAKE_TOOLCHAIN_FILE`
+### if you use vcpkg...
+... you may need to set `CMAKE_TOOLCHAIN_FILE`
 to `[vcpkg root]/scripts/buildsystems/vcpkg.cmake` on generation step.\
 It will be
 ```shell
 cmake -DCMAKE_TOOLCHAIN_FILE=[vcpkg root]/scripts/buildsystems/vcpkg.cmake ..
 ```
 
-#### ...other
-If CMake cannot find **libusb**'s package
-you can set direct paths via variables `LIBUSB_INCLUDE_DIR` and `LIBUSB_LIBRARY`.\
-It will be (*project generation step*)
+### CMake cannot find packages
+On project generation step:
+
+**ObjLibusb**\
+you can set `OBJLIBUSB_ROOT` variable to the ObjLibusb's root directory (directory where you **installed** ObjLibusb)\
+or you can set direct paths via variables `OBJLIBUSB_INCLUDE_DIR` and `OBJLIBUSB_LIBRARY`:
 ```shell
-cmake -DLIBUSB_INCLUDE_DIR=[path_to_include] -DLIBUSB_LIBRARY=[path_to_binary] ..
+cmake -DOBJLIBUSB_ROOT=[path_to_root] ..
+# or
+cmake -DOBJLIBUSB_INCLUDE_DIR=[path_to_include] -DOBJLIBUSB_LIBRARY=[path_to_binary] ..
 ```
 
-If CMake cannot find **MbedTLS**'s package
+**MbedTLS**\
 you can set `MBED_TLS_ROOT` variable to the MbedTLS's root directory (directory where you **installed** MbedTLS)\
 or you can set direct paths via variables `MBED_TLS_INCLUDE_DIR` and `MBED_TLS_LIBRARIES`:
 ```shell
-cmake -MBED_TLS_ROOT=[path_to_root]
+cmake -DMBED_TLS_ROOT=[path_to_root] ..
 # or
 cmake -DMBED_TLS_INCLUDE_DIR=[path_to_include] -DMBED_TLS_LIBRARIES=[list_of_paths_to_library_files] ..
+```
+
+## Install
+```shell
+cmake --install .
+```
+
+## Use
+```cmake
+# CMakeLists.txt of your project
+find_package(adblib REQUIRED)
+target_link_libraries(MyTarget PUBLIC adblib)
 ```
 
 ## Examples
@@ -64,6 +86,8 @@ Build Release version of the library:
 
 ### Windows (MSVC)
 *(PowerShell)*
+ * **mbedtls** built from source and installed
+ * **libusb** installed with vcpkg
 ```shell
 > git clone https://github.com/BurnBirdX7/adb-lib
 > cd .\adb-lib\
@@ -76,6 +100,7 @@ Build Release version of the library:
 ```
 
 ### Linux
+* **libusb** and **mbedtls** installed with apt
 ```shell
 $ git clone https://github.com/BurnBirdX7/adb-lib
 $ cd adb-lib/
