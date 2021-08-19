@@ -117,14 +117,17 @@ if (ObjLibusb_FOUND)
     if(DEFINED UNIX)
         find_package(Threads REQUIRED)
     endif()
-
     target_link_libraries(adblib PUBLIC ObjLibusb)
-else()
-    message(NOTICE "ObjLibusb not found. Trying to link ObjLibusb from provided paths")
 
+else()
+
+    message(NOTICE "ObjLibusb not found. Trying to link ObjLibusb from provided paths")
     if ((OBJLIBUSB_INCLUDE_DIR STREQUAL "") OR (OBJLIBUSB_LIBRARY STREQUAL ""))
+
         message(SEND_ERROR "ObjLibusb paths are not set")
+
     else()
+
         message(NOTICE "ObjLibusb include dir: ${OBJLIBUSB_INCLUDE_DIR}")
         message(NOTICE "ObjLibusb libraries dir: ${OBJLIBUSB_LIBRARY}")
 
@@ -133,6 +136,7 @@ else()
 
         target_include_directories(adblib PUBLIC
                 ${OBJLIBUSB_INCLUDE_DIR})
+
     endif()
 
 endif()

@@ -87,20 +87,22 @@ Build Release version of the library:
 ### Windows (MSVC)
 *(PowerShell)*
  * **mbedtls** built from source and installed
- * **libusb** installed with vcpkg
+ * **libusb** installed via vcpkg
+ * **ObjLibusb** built and installed with CMake
 ```shell
 > git clone https://github.com/BurnBirdX7/adb-lib
 > cd .\adb-lib\
 > mkdir build
 > cd .\build\
-> cmake -DMBED_TLS_ROOT="C:\Program Files (x86)\mbed TLS" -DCMAKE_TOOLCHAIN_FILE=F:/Dev/vcpkg/scripts/buildsystems/vcpkg.cmake
+> cmake -DMBED_TLS_ROOT="C:\Program Files (x86)\mbed TLS" -DOBJLIBUSB_ROOT="C:\Program Files (x86)\ObjLibusb" ..
 > cmake --build . --config Release
 # to build library only:
 > cmake --build . --config Release --target adblib
 ```
 
 ### Linux
-* **libusb** and **mbedtls** installed with apt
+* **libusb** and **mbedtls** installed via apt
+* **ObjLibusb** built and installed with CMake
 ```shell
 $ git clone https://github.com/BurnBirdX7/adb-lib
 $ cd adb-lib/

@@ -4,7 +4,7 @@
 #include <iostream>
 #include <tuple>
 
-#include <ObjLibusb-1.0/ObjLibusb/Error.hpp>
+#include <ObjLibusb/Error.hpp>
 
 
 UsbTransport::UsbTransport(const Device& device, const InterfaceData& interfaceData)
