@@ -74,10 +74,25 @@ cmake -DMBED_TLS_INCLUDE_DIR=[path_to_include] -DMBED_TLS_LIBRARIES=[list_of_pat
 cmake --install .
 ```
 
+Library will be installed at `CMAKE_INSATALL_PREFIX`.\
+Default is `/usr/local` on UNIX systems,\
+`C:/Program Files/${PROJECT_NAME}` (or `Program Files (x86)`) on Windows.
+
+Paths to all installed files will be listed in `install_manifest.txt` file in the build directory.
+
 ## Use
 ```cmake
 # CMakeLists.txt of your project
 find_package(adblib REQUIRED)
+target_link_libraries(MyTarget PUBLIC adblib)
+```
+
+In some situations CMake requires you to find (with `find_package()`) consequently linked libraries.\
+It should not be the case if you linked library with direct path to it.
+```cmake
+find_package(adblib REQUIRED)
+find_package(Threads REQUIRED)
+find_package(MbedTLS REQUIRED)
 target_link_libraries(MyTarget PUBLIC adblib)
 ```
 
@@ -94,7 +109,7 @@ Build Release version of the library:
 > cd .\adb-lib\
 > mkdir build
 > cd .\build\
-> cmake -DMBED_TLS_ROOT="C:\Program Files (x86)\mbed TLS" -DOBJLIBUSB_ROOT="C:\Program Files (x86)\ObjLibusb" ..
+> cmake -DMBED_TLS_ROOT="C:\Program Files\mbed TLS" -DOBJLIBUSB_ROOT="C:\Program Files\ObjLibusb" ..
 > cmake --build . --config Release
 # to build library only:
 > cmake --build . --config Release --target adblib
